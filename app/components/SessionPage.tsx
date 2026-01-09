@@ -45,14 +45,14 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
         console.error("Failed to parse session state");
       }
     } else {
-      // No session - check for readiness to create one
-      const readinessKey = `bodyCoach.${bodyPart}.lastReadiness`;
-      const readinessRaw = localStorage.getItem(readinessKey);
+      // No session - check for coachState to create one
+      const coachStateKey = `bodyCoach.${bodyPart}.coachState`;
+      const coachStateRaw = localStorage.getItem(coachStateKey);
       
-      if (readinessRaw) {
+      if (coachStateRaw) {
         try {
-          const readiness = JSON.parse(readinessRaw);
-          const mode = readiness.mode || "TRAINING";
+          const coachState = JSON.parse(coachStateRaw);
+          const mode = coachState.mode || "TRAINING";
           
           // Get exercises for this mode
           const exercises = getExercisesForMode(bodyPart, mode);
@@ -69,7 +69,7 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
           setState(newState);
           localStorage.setItem(key, JSON.stringify(newState));
         } catch (e) {
-          console.error("Failed to create session from readiness");
+          console.error("Failed to create session from coach state");
         }
       }
     }
