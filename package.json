@@ -1,7 +1,8 @@
 {
-  "name": "knee-coach",
-  "version": "0.1.0",
+  "name": "body-coach",
+  "version": "1.0.0",
   "private": true,
+  "description": "Your personal rehabilitation companion",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
