@@ -197,15 +197,15 @@ export const KNEE_PAIN_LOCATION_CATEGORIES = [
   },
   {
     label: "Medial (Inside)",
-    locations: ["inside", "medial_joint_line", "medial_tibial_plateau", "pes_anserinus"] as KneePainLocation[],
+    locations: ["inside", "medial_joint_line", "pes_anserinus"] as KneePainLocation[],
   },
   {
     label: "Lateral (Outside)",
-    locations: ["outside", "lateral_joint_line", "lateral_tibial_plateau", "it_band_insertion"] as KneePainLocation[],
+    locations: ["outside", "lateral_joint_line", "it_band_insertion"] as KneePainLocation[],
   },
   {
-    label: "Upper Shin / Below Joint",
-    locations: ["tibialis_anterior", "medial_tibial_plateau", "lateral_tibial_plateau"] as KneePainLocation[],
+    label: "Below Joint / Upper Shin",
+    locations: ["medial_tibial_plateau", "lateral_tibial_plateau", "tibialis_anterior"] as KneePainLocation[],
   },
   {
     label: "Other",

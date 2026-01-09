@@ -135,7 +135,7 @@ hr { border: none; border-top: 1px solid #2a2a2d; margin: 14px 0; }
 }
 
 .adaptive-section.visible {
-  max-height: 500px;
+  max-height: 1500px;
   opacity: 1;
   margin-top: 14px;
   visibility: visible;
