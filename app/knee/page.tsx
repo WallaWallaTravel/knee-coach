@@ -14,16 +14,11 @@ import {
 import {
   KneeReadiness,
   KneeSensation,
-  KneeMovementRestriction,
-  KneePainLocation,
   KneeCalibrationProfile,
   KNEE_SENSATION_INFO,
-  KNEE_SENSATION_CATEGORIES,
-  KNEE_MOVEMENT_CATEGORIES,
-  KNEE_MOVEMENT_LABELS,
-  KNEE_PAIN_LOCATION_CATEGORIES,
-  KNEE_PAIN_LOCATION_LABELS,
   KNEE_ROM_ZONES,
+  KNEE_PAIN_LOCATION_LABELS,
+  KNEE_MOVEMENT_LABELS,
 } from "@/lib/body-parts/knee";
 
 const CONFIDENCE_LABELS: Record<number, string> = {
@@ -53,6 +48,18 @@ const DISCOMFORT_LABELS: Record<number, string> = {
   9: "Very severe",
   10: "Extreme",
 };
+
+// Simplified daily sensations - just the key ones to check
+const DAILY_SENSATION_OPTIONS: { id: KneeSensation; label: string; warning?: boolean; danger?: boolean }[] = [
+  { id: "good", label: "Feeling good ✓" },
+  { id: "stiff", label: "Stiff" },
+  { id: "achy", label: "Achy" },
+  { id: "sharp", label: "Sharp pain", warning: true },
+  { id: "unstable", label: "Unstable", warning: true },
+  { id: "giving_way", label: "Giving way", danger: true },
+  { id: "catching", label: "Catching", warning: true },
+  { id: "locking", label: "Locking", danger: true },
+];
 
 function getConfidenceColor(value: number): string {
   if (value <= 3) return "#ef4444";
@@ -105,67 +112,50 @@ export default function KneePage() {
     }
   }, [router]);
 
-  // Core questions
+  // Simplified daily questions
   const [confidence, setConfidence] = useState(7);
-  const [movementRestrictions, setMovementRestrictions] = useState<KneeMovementRestriction[]>([]);
-  const [sensations, setSensations] = useState<KneeSensation[]>([]);
+  const [todaySensations, setTodaySensations] = useState<KneeSensation[]>([]);
   const [restingDiscomfort, setRestingDiscomfort] = useState(0);
   const [activityGoal, setActivityGoal] = useState<ActivityGoal>("training");
-
-  // Adaptive follow-ups
   const [recentGivingWay, setRecentGivingWay] = useState(false);
-  const [painLocation, setPainLocation] = useState<KneePainLocation[]>([]);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
 
-  // UI state
-  const [expandedSensationCategories, setExpandedSensationCategories] = useState<string[]>(["pain", "mechanical"]);
-  const [expandedMovementCategories, setExpandedMovementCategories] = useState<string[]>(["Deceleration & Direction Change"]);
-
-  // Determine which adaptive sections to show
+  // Determine if we need follow-up
   const showGivingWaySection = confidence < 6;
-  const needsPainLocation = sensations.some(s => {
-    const info = KNEE_SENSATION_INFO[s];
-    return info?.category === "pain" || info?.warning || info?.danger;
+  const hasWarningSensations = todaySensations.some(s => {
+    const opt = DAILY_SENSATION_OPTIONS.find(o => o.id === s);
+    return opt?.warning || opt?.danger;
   });
 
   const readiness: KneeReadiness = useMemo(() => ({
     confidence,
-    movementRestrictions,
-    sensations,
+    // Use calibration data for baseline, modified by today's status
+    movementRestrictions: calibration?.movementRestrictions || [],
+    sensations: todaySensations.length > 0 ? todaySensations : ["good"],
     restingDiscomfort,
     activityGoal,
     recentGivingWay: showGivingWaySection ? recentGivingWay : undefined,
-    painLocations: needsPainLocation ? painLocation : undefined,
+    painLocations: calibration?.painLocations || [],
     problemZoneStatus,
   }), [
-    confidence, movementRestrictions, sensations, restingDiscomfort, activityGoal,
-    recentGivingWay, painLocation, showGivingWaySection, needsPainLocation, problemZoneStatus,
+    confidence, todaySensations, restingDiscomfort, activityGoal,
+    recentGivingWay, showGivingWaySection, problemZoneStatus, calibration,
   ]);
 
   const coach = useMemo(() => initCoachState(bodyPart, readiness), [readiness]);
 
   function toggleSensation(s: KneeSensation) {
-    if (s === "nothing" || s === "good") {
-      setSensations(sensations.includes(s) ? [] : [s]);
+    if (s === "good") {
+      // "Feeling good" clears other selections
+      setTodaySensations(todaySensations.includes(s) ? [] : [s]);
     } else {
-      setSensations((prev) => {
-        const filtered = prev.filter((x) => x !== "nothing" && x !== "good");
+      setTodaySensations((prev) => {
+        const filtered = prev.filter((x) => x !== "good");
         return filtered.includes(s)
           ? filtered.filter((x) => x !== s)
           : [...filtered, s];
       });
     }
-  }
-
-  function toggleMovement(m: KneeMovementRestriction) {
-    setMovementRestrictions((prev) =>
-      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
-    );
-  }
-
-  function togglePainLocation(loc: KneePainLocation) {
-    setPainLocation((prev) =>
-      prev.includes(loc) ? prev.filter((x) => x !== loc) : [...prev, loc]
-    );
   }
 
   function handleBodyPartChange(part: BodyPart) {
@@ -184,6 +174,11 @@ export default function KneePage() {
   if (!calibration) {
     return <main style={{ padding: 16 }}>Loading calibration...</main>;
   }
+
+  // Get primary problem zone info
+  const primaryZone = calibration.problemZones.length > 0 
+    ? calibration.problemZones.sort((a, b) => b.severity - a.severity)[0]
+    : null;
 
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
@@ -210,31 +205,56 @@ export default function KneePage() {
         </Link>
       </div>
 
-      {/* Problem Zone Status */}
-      {calibration.problemZones.length > 0 && (
+      {/* Quick Profile Summary */}
+      <div className="card" style={{ marginTop: 12, background: "#1a1a1d" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>
+              Your Profile
+            </div>
+            {primaryZone && (
+              <div style={{ fontSize: 14, marginBottom: 4 }}>
+                <strong>Problem zone:</strong> {KNEE_ROM_ZONES[primaryZone.zoneIndex]?.label}
+              </div>
+            )}
+            {calibration.painLocations.length > 0 && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                {calibration.painLocations.slice(0, 2).map(loc => KNEE_PAIN_LOCATION_LABELS[loc]).join(", ")}
+                {calibration.painLocations.length > 2 && ` +${calibration.painLocations.length - 2} more`}
+              </div>
+            )}
+          </div>
+          <Link href="/knee/calibrate" className="muted" style={{ fontSize: 12 }}>
+            Edit →
+          </Link>
+        </div>
+      </div>
+
+      {/* Problem Zone Status - Only if they have one */}
+      {primaryZone && (
         <div className="card" style={{ marginTop: 12 }}>
-          <div className="section-header">Your problem zone today</div>
+          <div className="section-header">How's your problem zone today?</div>
           <p className="muted" style={{ margin: "4px 0 12px 0", fontSize: 13 }}>
-            {calibration.problemZones.map(pz => KNEE_ROM_ZONES[pz.zoneIndex]?.label).join(", ")}
+            {KNEE_ROM_ZONES[primaryZone.zoneIndex]?.label}
           </p>
           <div className="chip-group">
             <button
               className={`chip ${problemZoneStatus === "better" ? "selected" : ""}`}
               onClick={() => setProblemZoneStatus("better")}
             >
-              Better
+              😊 Better
             </button>
             <button
               className={`chip ${problemZoneStatus === "same" ? "selected" : ""}`}
               onClick={() => setProblemZoneStatus("same")}
             >
-              Same
+              😐 Same as usual
             </button>
             <button
               className={`chip ${problemZoneStatus === "worse" ? "selected selected-warning" : ""}`}
               onClick={() => setProblemZoneStatus("worse")}
             >
-              Worse
+              😟 Worse
             </button>
           </div>
         </div>
@@ -297,142 +317,46 @@ export default function KneePage() {
         </div>
       </div>
 
-      {/* Sensations */}
+      {/* Simplified Sensations - Quick Check */}
       <div className="card" style={{ marginTop: 12 }}>
-        <div className="section-header">What sensations are you noticing?</div>
+        <div className="section-header">How does it feel right now?</div>
         <p className="muted" style={{ margin: "4px 0 12px 0", fontSize: 13 }}>
-          Tap categories to expand. Select all that apply.
+          Quick check - select what applies today
         </p>
-
-        {KNEE_SENSATION_CATEGORIES.map((category) => {
-          const selectedCount = category.sensations.filter(s => sensations.includes(s)).length;
-          const isExpanded = expandedSensationCategories.includes(category.id);
-          
-          return (
-            <div key={category.id} style={{ marginBottom: 8 }}>
-              <button
-                className="category-toggle"
-                onClick={() => setExpandedSensationCategories(prev =>
-                  prev.includes(category.id)
-                    ? prev.filter(x => x !== category.id)
-                    : [...prev, category.id]
-                )}
-              >
-                <span>{category.label}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {selectedCount > 0 && (
-                    <span className="selected-count">{selectedCount}</span>
-                  )}
-                  <span>{isExpanded ? "▼" : "▶"}</span>
-                </span>
-              </button>
-              {isExpanded && (
-                <div className="chip-group" style={{ marginTop: 8, paddingLeft: 8 }}>
-                  {category.sensations.map((s) => {
-                    const info = KNEE_SENSATION_INFO[s];
-                    return (
-                      <button
-                        key={s}
-                        className={`chip ${
-                          sensations.includes(s)
-                            ? info?.danger
-                              ? "selected-danger"
-                              : info?.warning
-                                ? "selected-warning"
-                                : "selected"
-                            : ""
-                        }`}
-                        onClick={() => toggleSensation(s)}
-                      >
-                        {info?.label || s}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Adaptive: Pain location follow-up */}
-        <div className={`adaptive-section ${needsPainLocation ? "visible" : ""}`}>
-          <hr />
-          <div className="section-header">Where do you feel it?</div>
-          {KNEE_PAIN_LOCATION_CATEGORIES.map((category) => (
-            <div key={category.label} style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>
-                {category.label}
-              </div>
-              <div className="chip-group">
-                {category.locations.map((loc) => (
-                  <button
-                    key={loc}
-                    className={`chip ${painLocation.includes(loc) ? "selected" : ""}`}
-                    onClick={() => togglePainLocation(loc)}
-                    style={{ fontSize: 12 }}
-                  >
-                    {KNEE_PAIN_LOCATION_LABELS[loc]}
-                  </button>
-                ))}
-              </div>
-            </div>
+        
+        <div className="chip-group">
+          {DAILY_SENSATION_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              className={`chip ${
+                todaySensations.includes(opt.id)
+                  ? opt.danger
+                    ? "selected-danger"
+                    : opt.warning
+                      ? "selected-warning"
+                      : "selected"
+                  : ""
+              }`}
+              onClick={() => toggleSensation(opt.id)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
-      </div>
 
-      {/* Movement Restrictions */}
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="section-header">Which movements feel restricted or off?</div>
-        <p className="muted" style={{ margin: "4px 0 12px 0", fontSize: 13 }}>
-          Tap categories to expand. Select any that feel limited.
-        </p>
-
-        {KNEE_MOVEMENT_CATEGORIES.map((category) => {
-          const selectedCount = category.movements.filter(m => movementRestrictions.includes(m)).length;
-          const isExpanded = expandedMovementCategories.includes(category.label);
-          
-          return (
-            <div key={category.label} style={{ marginBottom: 8 }}>
-              <button
-                className="category-toggle"
-                onClick={() => setExpandedMovementCategories(prev =>
-                  prev.includes(category.label)
-                    ? prev.filter(x => x !== category.label)
-                    : [...prev, category.label]
-                )}
-              >
-                <span>{category.label}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {selectedCount > 0 && (
-                    <span className="selected-count">{selectedCount}</span>
-                  )}
-                  <span>{isExpanded ? "▼" : "▶"}</span>
-                </span>
-              </button>
-              {isExpanded && (
-                <div className="chip-group" style={{ marginTop: 8, paddingLeft: 8 }}>
-                  {category.movements.map((m) => (
-                    <button
-                      key={m}
-                      className={`chip ${movementRestrictions.includes(m) ? "selected-warning" : ""}`}
-                      onClick={() => toggleMovement(m)}
-                    >
-                      {KNEE_MOVEMENT_LABELS[m]}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        <button
-          className={`chip ${movementRestrictions.length === 0 ? "selected" : ""}`}
-          onClick={() => setMovementRestrictions([])}
-          style={{ marginTop: 8 }}
-        >
-          None - all movements feel good
-        </button>
+        {/* Warning for concerning sensations */}
+        {hasWarningSensations && (
+          <div style={{ 
+            marginTop: 12, 
+            padding: 10, 
+            background: "rgba(239, 68, 68, 0.15)", 
+            borderRadius: 8,
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            fontSize: 13
+          }}>
+            ⚠️ These sensations suggest caution. The coach will adjust your plan accordingly.
+          </div>
+        )}
       </div>
 
       {/* Resting Discomfort */}
@@ -471,7 +395,7 @@ export default function KneePage() {
               {coach.mode}
             </div>
           </div>
-          <span className={`mode-badge ${modeClass}`}>{coach.plan.length} drills</span>
+          <span className={`mode-badge ${modeClass}`}>{coach.plan.length} exercises</span>
         </div>
 
         <p className="muted" style={{ margin: "8px 0 0 0", fontSize: 14 }}>
@@ -497,7 +421,7 @@ export default function KneePage() {
       </div>
 
       <p className="muted" style={{ marginTop: 12, fontSize: 12, textAlign: "center" }}>
-        The coach adapts in real-time. If pain spikes or stability fails during a drill,
+        The coach adapts in real-time. If pain spikes or stability fails during an exercise,
         you'll automatically switch to a reset protocol.
       </p>
     </main>
