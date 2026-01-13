@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BodyPartTabs } from "@/app/components/BodyPartSelector";
+import { ExpandableNotes } from "@/app/components/ExpandableNotes";
 import {
   BodyPart,
   BODY_PART_INFO,
@@ -119,6 +120,7 @@ export default function KneePage() {
   const [activityGoal, setActivityGoal] = useState<ActivityGoal>("training");
   const [recentGivingWay, setRecentGivingWay] = useState(false);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [dailyNotes, setDailyNotes] = useState("");
 
   // Determine if we need follow-up
   const showGivingWaySection = confidence < 6;
@@ -127,7 +129,7 @@ export default function KneePage() {
     return opt?.warning || opt?.danger;
   });
 
-  const readiness: KneeReadiness = useMemo(() => ({
+  const readiness: KneeReadiness & { dailyNotes?: string } = useMemo(() => ({
     confidence,
     // Use calibration data for baseline, modified by today's status
     movementRestrictions: calibration?.movementRestrictions || [],
@@ -137,9 +139,10 @@ export default function KneePage() {
     recentGivingWay: showGivingWaySection ? recentGivingWay : undefined,
     painLocations: calibration?.painLocations || [],
     problemZoneStatus,
+    dailyNotes: dailyNotes || undefined,
   }), [
     confidence, todaySensations, restingDiscomfort, activityGoal,
-    recentGivingWay, showGivingWaySection, problemZoneStatus, calibration,
+    recentGivingWay, showGivingWaySection, problemZoneStatus, calibration, dailyNotes,
   ]);
 
   const coach = useMemo(() => initCoachState(bodyPart, readiness), [readiness]);
@@ -384,6 +387,16 @@ export default function KneePage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Notes */}
+      <div style={{ marginTop: 12 }}>
+        <ExpandableNotes
+          value={dailyNotes}
+          onChange={setDailyNotes}
+          label="Add notes about today"
+          placeholder="Anything else about how your knee feels today? Recent activities, sleep, stress..."
+        />
       </div>
 
       {/* Recommendation */}
