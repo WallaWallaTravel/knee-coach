@@ -327,7 +327,7 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
         </div>
 
         <div className="card border-green-500" style={{
-          background: "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, #121214 100%)",
+          background: "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, var(--color-surface-raised) 100%)",
         }}>
           <div className="text-5xl text-center mb-3">🎉</div>
           <h2 className="m-0 mb-4 text-center">Great Work!</h2>

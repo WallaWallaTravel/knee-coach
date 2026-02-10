@@ -8,24 +8,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Dark theme base colors (WCAG-compliant on #0b0b0c)
+        // Theme-aware surface colors (swap via CSS variables)
         surface: {
-          DEFAULT: "#0b0b0c",
-          raised: "#121214",
-          overlay: "#1a1a1d",
-          border: "#2a2a2d",
-          "border-hover": "#3a3a3d",
+          DEFAULT: "var(--color-surface)",
+          raised: "var(--color-surface-raised)",
+          overlay: "var(--color-surface-overlay)",
+          border: "var(--color-surface-border)",
+          "border-hover": "var(--color-surface-border-hover)",
         },
-        // Body-part accent colors
+        // Body-part accent colors (static — work in both themes)
         accent: {
           knee: "#6366f1",
           achilles: "#f59e0b",
           shoulder: "#10b981",
           foot: "#ec4899",
         },
-        // WCAG-compliant text colors on #0b0b0c
-        muted: "#d4d8de",        // 13.75:1 contrast ratio
-        "muted-strong": "#9ca3af", // 7.75:1 - large text only
+        // Theme-aware text colors
+        muted: "var(--color-text-secondary)",
+        "muted-strong": "var(--color-text-muted)",
       },
       borderRadius: {
         card: "14px",

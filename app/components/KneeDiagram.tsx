@@ -68,8 +68,8 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
           cy="70"
           rx="45"
           ry="60"
-          fill="#1a1a1d"
-          stroke="#3a3a3d"
+          fill="var(--color-surface-overlay)"
+          stroke="var(--color-surface-border-hover)"
           strokeWidth="1.5"
         />
 
@@ -84,8 +84,8 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                 cx={zone.cx}
                 cy={zone.cy}
                 r={zone.r}
-                fill={isSelected ? "#312e81" : isHovered ? "#222226" : "#0b0b0c"}
-                stroke={isSelected ? "#6366f1" : isHovered ? "#5a5a5d" : "#3a3a3d"}
+                fill={isSelected ? "var(--color-chip-selected-bg)" : isHovered ? "var(--color-hover-bg)" : "var(--color-surface)"}
+                stroke={isSelected ? "#6366f1" : isHovered ? "var(--color-surface-border-hover)" : "var(--color-surface-border-hover)"}
                 strokeWidth={isSelected ? 2 : 1.5}
                 className="cursor-pointer transition-all duration-150 ease-in-out"
                 tabIndex={0}
@@ -111,7 +111,7 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                   y={zone.cy}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#c7d2fe"
+                  fill="var(--color-chip-selected-text)"
                   fontSize="8"
                   fontWeight="600"
                   className="pointer-events-none"

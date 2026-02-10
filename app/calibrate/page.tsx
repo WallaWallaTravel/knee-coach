@@ -207,7 +207,7 @@ export default function CalibratePage() {
                       ? zoneSeverities[i] === 3 ? "#dc2626"
                         : zoneSeverities[i] === 2 ? "#f59e0b"
                         : "#6366f1"
-                      : "#2a2a2d",
+                      : "var(--color-surface-border)",
                   }}
                   title={zone.label}
                 />
@@ -419,8 +419,8 @@ export default function CalibratePage() {
                       zoneSeverities[i] === 2 ? "selected-warning" : ""
                     }`}
                     style={{
-                      background: zoneSeverities[i] === 3 ? "#7f1d1d" :
-                                  zoneSeverities[i] === 2 ? "#78350f" : "#1e1b4b",
+                      background: zoneSeverities[i] === 3 ? "var(--color-chip-danger-bg)" :
+                                  zoneSeverities[i] === 2 ? "var(--color-chip-warning-bg)" : "var(--color-chip-selected-bg)",
                       borderColor: zoneSeverities[i] === 3 ? "#ef4444" :
                                    zoneSeverities[i] === 2 ? "#f59e0b" : "#4f46e5",
                     }}

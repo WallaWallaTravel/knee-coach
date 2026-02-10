@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { safeGet, safeSet, safeRemove, getStorageUsage, pruneOldData } from "@/lib/storage/safe-storage";
 import { downloadExport, importData } from "@/lib/storage/data-export";
+import { useTheme } from "@/lib/theme/theme-provider";
 
 interface AISettings {
   provider: "openai" | "anthropic" | "none";
@@ -23,6 +24,7 @@ const STORAGE_KEY_APP = "bodyCoach.settings.app";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"general" | "ai" | "data">("general");
 
   // AI Settings
@@ -193,8 +195,8 @@ export default function SettingsPage() {
             key={tab}
             className={`flex-1 py-2.5 px-3 border-none rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 ${
               activeTab === tab
-                ? "bg-surface-border text-gray-100"
-                : "bg-transparent text-muted hover:bg-[#222226] hover:text-gray-100"
+                ? "bg-surface-border"
+                : "bg-transparent text-muted hover:bg-[var(--color-hover-bg)]"
             }`}
             onClick={() => setActiveTab(tab)}
           >
@@ -216,14 +218,16 @@ export default function SettingsPage() {
             </div>
             <select
               id="theme-select"
-              value={appSettings.theme}
+              value={theme}
               onChange={(e) => {
-                setAppSettings(prev => ({ ...prev, theme: e.target.value as "dark" | "light" | "system" }));
+                const newTheme = e.target.value as "dark" | "light" | "system";
+                setTheme(newTheme);
+                setAppSettings(prev => ({ ...prev, theme: newTheme }));
               }}
-              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
+              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-sm"
             >
               <option value="dark">Dark</option>
-              <option value="light">Light (coming soon)</option>
+              <option value="light">Light</option>
               <option value="system">System</option>
             </select>
           </div>
@@ -275,7 +279,7 @@ export default function SettingsPage() {
                 }));
                 setConnectionStatus("idle");
               }}
-              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
+              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-sm"
             >
               <option value="none">None (Disabled)</option>
               <option value="openai">OpenAI (GPT-4)</option>
@@ -303,7 +307,7 @@ export default function SettingsPage() {
                       setConnectionStatus("idle");
                     }}
                     placeholder={`Enter your ${aiSettings.provider === "openai" ? "OpenAI" : "Anthropic"} API key`}
-                    className="flex-1 px-3 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
+                    className="flex-1 px-3 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-sm"
                   />
                   <button
                     className="btn px-3 py-2 text-[13px]"

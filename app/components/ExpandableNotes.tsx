@@ -22,7 +22,7 @@ export function ExpandableNotes({
       <button
         type="button"
         onClick={() => setIsExpanded(true)}
-        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-surface-raised border border-surface-border rounded-[10px] text-muted text-sm cursor-pointer w-full transition-all duration-150 ease-in-out hover:border-surface-border-hover hover:bg-[#222226]"
+        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-surface-raised border border-surface-border rounded-[10px] text-muted text-sm cursor-pointer w-full transition-all duration-150 ease-in-out hover:border-surface-border-hover hover:bg-[var(--color-hover-bg)]"
       >
         <span className="text-base">+</span>
         <span>{label}</span>
@@ -37,7 +37,7 @@ export function ExpandableNotes({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={3}
-        className="w-full bg-surface border border-surface-border rounded-lg p-2.5 text-gray-100 text-sm resize-y min-h-[80px] font-[inherit]"
+        className="w-full bg-surface border border-surface-border rounded-lg p-2.5 text-sm resize-y min-h-[80px] font-[inherit]"
       />
       <div className="flex justify-end mt-2">
         <button

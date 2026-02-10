@@ -120,7 +120,7 @@ export function AIChat({
           <h3 className="m-0 text-base">AI Assistant</h3>
           {onClose && (
             <button
-              className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-gray-100"
+              className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-[var(--color-text-primary)]"
               onClick={onClose}
               aria-label="Close"
             >×</button>
@@ -150,7 +150,7 @@ export function AIChat({
         <h3 className="m-0 text-base">{chatTitle}</h3>
         {onClose && (
           <button
-            className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-gray-100"
+            className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-[var(--color-text-primary)]"
             onClick={onClose}
             aria-label="Close"
           >×</button>
@@ -219,7 +219,7 @@ export function AIChat({
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           disabled={loading}
-          className="flex-1 px-3.5 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm focus:outline-none focus:border-indigo-600"
+          className="flex-1 px-3.5 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-indigo-600"
         />
         <button
           type="submit"
@@ -286,7 +286,7 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
   return (
     <>
       <button
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-surface-border-hover rounded-md bg-surface-raised text-muted text-xs cursor-pointer transition-all duration-150 hover:bg-[#222226] hover:text-gray-100 hover:border-indigo-600"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-surface-border-hover rounded-md bg-surface-raised text-muted text-xs cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)] hover:border-indigo-600"
         onClick={() => setShowChat(true)}
         title="Explain this exercise"
       >
