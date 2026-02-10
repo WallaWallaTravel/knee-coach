@@ -28,8 +28,43 @@ import {
 import { CONFIDENCE_LABELS, DISCOMFORT_LABELS, getConfidenceColor, getDiscomfortColor } from "@/lib/checkin/constants";
 import { CONFIDENCE_STABILITY } from "@/lib/coach/thresholds";
 import { safeGet, safeSet } from "@/lib/storage/safe-storage";
-import { BODY_PART_CHECK_IN_CONFIG, type AnyCalibrationProfile } from "./body-part-config";
+import { BODY_PART_CHECK_IN_CONFIG, type AnyCalibrationProfile, type BodyPartCheckInConfig } from "./body-part-config";
 import type { KneeCalibrationProfile } from "@/lib/body-parts/knee";
+
+function KneeProfileSummary({
+  calibration,
+  primaryZone,
+  config,
+  bodyPart,
+}: {
+  calibration: AnyCalibrationProfile;
+  primaryZone: { zoneIndex: number; severity: number };
+  config: BodyPartCheckInConfig;
+  bodyPart: BodyPart;
+}) {
+  const kneeProfile = calibration as KneeCalibrationProfile;
+  return (
+    <div className="card mt-3 bg-surface-raised">
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="muted text-[11px] uppercase mb-1">
+            Your Profile
+          </div>
+          <div className="text-sm mb-1">
+            <strong>Problem zone:</strong> {config.romZones[primaryZone.zoneIndex]?.label}
+          </div>
+          {kneeProfile.painLocations?.length > 0 && (
+            <div className="muted text-xs">
+              {kneeProfile.painLocations.slice(0, 2).map((loc: string) => config.painLocationLabels[loc]).join(", ")}
+              {kneeProfile.painLocations.length > 2 && ` +${kneeProfile.painLocations.length - 2} more`}
+            </div>
+          )}
+        </div>
+        <Link href={`/${bodyPart}/calibrate`} className="muted text-xs">Edit →</Link>
+      </div>
+    </div>
+  );
+}
 
 interface CheckInPageProps {
   bodyPart: BodyPart;
@@ -232,30 +267,14 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
       </div>
 
       {/* Quick Profile Summary (knee only) */}
-      {bodyPart === "knee" && primaryZone && (() => {
-        const kneeProfile = calibration as KneeCalibrationProfile | null;
-        return (
-          <div className="card mt-3 bg-surface-raised">
-            <div className="flex justify-between items-start">
-              <div>
-                <div className="muted text-[11px] uppercase mb-1">
-                  Your Profile
-                </div>
-                <div className="text-sm mb-1">
-                  <strong>Problem zone:</strong> {config.romZones[primaryZone.zoneIndex]?.label}
-                </div>
-                {kneeProfile?.painLocations && kneeProfile.painLocations.length > 0 && (
-                  <div className="muted text-xs">
-                    {kneeProfile.painLocations.slice(0, 2).map((loc: string) => config.painLocationLabels[loc]).join(", ")}
-                    {kneeProfile.painLocations.length > 2 && ` +${kneeProfile.painLocations.length - 2} more`}
-                  </div>
-                )}
-              </div>
-              <Link href={`/${bodyPart}/calibrate`} className="muted text-xs">Edit →</Link>
-            </div>
-          </div>
-        );
-      })()}
+      {bodyPart === "knee" && primaryZone && (
+        <KneeProfileSummary
+          calibration={calibration}
+          primaryZone={primaryZone}
+          config={config}
+          bodyPart={bodyPart}
+        />
+      )}
 
       {/* Trend-Based Safety Alerts */}
       {trends && (trends.progressiveWorsening || trends.painDirection === "worsening" || trends.recentResetCount >= 5) && (

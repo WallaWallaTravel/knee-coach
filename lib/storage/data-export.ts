@@ -10,6 +10,8 @@ import { safeSet } from "./safe-storage";
 export function exportAllData(): string {
   const data: Record<string, unknown> = {};
 
+  // Raw localStorage iteration is required here — safeGet only reads individual
+  // known keys, but export needs to discover all bodyCoach.* keys dynamically.
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);

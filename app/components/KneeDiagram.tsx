@@ -90,7 +90,8 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                 className="cursor-pointer transition-all duration-150 ease-in-out"
                 tabIndex={0}
                 role="button"
-                aria-label={`${zone.label}${isSelected ? " (selected)" : ""}`}
+                aria-label={zone.label}
+                aria-pressed={isSelected}
                 onClick={() => onToggle(zone.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
