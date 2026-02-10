@@ -22,75 +22,28 @@ export function ExpandableNotes({
       <button
         type="button"
         onClick={() => setIsExpanded(true)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "10px 14px",
-          background: "#1a1a1d",
-          border: "1px solid #2a2a2d",
-          borderRadius: 10,
-          color: "#9ca3af",
-          fontSize: 14,
-          cursor: "pointer",
-          width: "100%",
-          transition: "all 0.15s ease",
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.borderColor = "#3a3a3d";
-          e.currentTarget.style.background = "#222226";
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.borderColor = "#2a2a2d";
-          e.currentTarget.style.background = "#1a1a1d";
-        }}
+        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-surface-raised border border-surface-border rounded-[10px] text-muted text-sm cursor-pointer w-full transition-all duration-150 ease-in-out hover:border-surface-border-hover hover:bg-[#222226]"
       >
-        <span style={{ fontSize: 16 }}>+</span>
+        <span className="text-base">+</span>
         <span>{label}</span>
       </button>
     );
   }
 
   return (
-    <div
-      style={{
-        background: "#1a1a1d",
-        border: "1px solid #2a2a2d",
-        borderRadius: 10,
-        padding: 12,
-      }}
-    >
+    <div className="bg-surface-raised border border-surface-border rounded-[10px] p-3">
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={3}
-        style={{
-          width: "100%",
-          background: "#0b0b0c",
-          border: "1px solid #2a2a2d",
-          borderRadius: 8,
-          padding: 10,
-          color: "#f3f4f6",
-          fontSize: 14,
-          resize: "vertical",
-          minHeight: 80,
-          fontFamily: "inherit",
-        }}
+        className="w-full bg-surface border border-surface-border rounded-lg p-2.5 text-gray-100 text-sm resize-y min-h-[80px] font-[inherit]"
       />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+      <div className="flex justify-end mt-2">
         <button
           type="button"
           onClick={() => setIsExpanded(false)}
-          style={{
-            padding: "6px 12px",
-            background: "transparent",
-            border: "1px solid #3a3a3d",
-            borderRadius: 6,
-            color: "#9ca3af",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
+          className="px-3 py-1.5 bg-transparent border border-surface-border-hover rounded-md text-muted text-[13px] cursor-pointer"
         >
           Done
         </button>

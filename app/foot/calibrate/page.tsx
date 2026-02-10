@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { safeGet, safeSet } from "@/lib/storage/safe-storage";
 import {
   FOOT_FUNCTIONAL_ZONES,
   FootCalibrationProfile,
@@ -12,8 +13,8 @@ import {
   FOOT_MOVEMENT_CATEGORIES,
   FOOT_MOVEMENT_LABELS,
 } from "@/lib/body-parts/foot";
-import { 
-  ISSUE_CONTEXT_LABELS, 
+import {
+  ISSUE_CONTEXT_LABELS,
   IssueContext,
   REHAB_GOAL_INFO,
   RehabGoal,
@@ -38,9 +39,9 @@ export default function FootCalibratePage() {
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem("bodyCoach.foot.calibration");
+    const saved = safeGet<Partial<FootCalibrationProfile> | null>("bodyCoach.foot.calibration", null);
     if (saved) {
-      setCalibration(JSON.parse(saved));
+      setCalibration(saved);
     }
   }, []);
 
@@ -108,7 +109,7 @@ export default function FootCalibratePage() {
       movementRestrictions: calibration.movementRestrictions || [],
       affectedSide: calibration.affectedSide || "both",
     };
-    localStorage.setItem("bodyCoach.foot.calibration", JSON.stringify(final));
+    safeSet("bodyCoach.foot.calibration", final);
     router.push("/foot");
   };
 
@@ -119,14 +120,14 @@ export default function FootCalibratePage() {
       case 0:
         return (
           <>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 48 }}>{info.icon}</div>
-              <h2 style={{ margin: "12px 0 8px" }}>Foot Profile Setup</h2>
+            <div className="text-center mb-5">
+              <div className="text-5xl">{info.icon}</div>
+              <h2 className="mt-3 mb-2">Foot Profile Setup</h2>
               <p className="muted">Let's understand your foot so we can personalize your rehab.</p>
             </div>
-            <div style={{ marginTop: 20 }}>
+            <div className="mt-5">
               <h3>What we'll cover:</h3>
-              <ul style={{ color: "#9ca3af", lineHeight: 1.8 }}>
+              <ul className="text-muted leading-relaxed">
                 <li>Which foot is affected</li>
                 <li>When symptoms occur (first steps, standing, etc.)</li>
                 <li>Where you feel symptoms</li>
@@ -134,7 +135,7 @@ export default function FootCalibratePage() {
                 <li>Your rehab goal</li>
               </ul>
             </div>
-            <button className="btn btn-primary" onClick={() => setStep(1)} style={{ width: "100%", marginTop: 20 }}>
+            <button className="btn btn-primary w-full mt-5" onClick={() => setStep(1)}>
               Get Started
             </button>
           </>
@@ -145,13 +146,12 @@ export default function FootCalibratePage() {
           <>
             <h2>Which foot is affected?</h2>
             <p className="muted">Select the side with issues.</p>
-            <div className="chip-group" style={{ marginTop: 16 }}>
+            <div className="chip-group mt-4">
               {(["left", "right", "both"] as const).map(side => (
                 <button
                   key={side}
-                  className={`chip ${calibration.affectedSide === side ? "selected" : ""}`}
+                  className={`chip flex-1 py-4 ${calibration.affectedSide === side ? "selected" : ""}`}
                   onClick={() => setCalibration(prev => ({ ...prev, affectedSide: side }))}
-                  style={{ flex: 1, padding: "16px" }}
                 >
                   {side === "left" ? "Left" : side === "right" ? "Right" : "Both"}
                 </button>
@@ -165,21 +165,20 @@ export default function FootCalibratePage() {
           <>
             <h2>When do you experience issues?</h2>
             <p className="muted">Tap all situations where symptoms occur. This is especially important for foot issues.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+            <div className="flex flex-col gap-2 mt-4">
               {FOOT_FUNCTIONAL_ZONES.map((zone, idx) => {
                 const selected = calibration.problemZones?.find(pz => pz.zoneIndex === idx);
                 return (
                   <div key={idx}>
                     <button
-                      className={`chip ${selected ? "selected" : ""}`}
+                      className={`chip w-full text-left py-3 px-4 ${selected ? "selected" : ""}`}
                       onClick={() => toggleProblemZone(idx)}
-                      style={{ width: "100%", textAlign: "left", padding: "12px 16px" }}
                     >
-                      <div style={{ fontWeight: 500 }}>{zone.label}</div>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>{zone.description}</div>
+                      <div className="font-medium">{zone.label}</div>
+                      <div className="text-xs opacity-70">{zone.description}</div>
                     </button>
                     {selected && (
-                      <div className="chip-group" style={{ marginTop: 8, marginLeft: 16 }}>
+                      <div className="chip-group mt-2 ml-4">
                         {([1, 2, 3] as const).map(sev => (
                           <button
                             key={sev}
@@ -204,8 +203,8 @@ export default function FootCalibratePage() {
             <h2>Where do you feel symptoms?</h2>
             <p className="muted">Select all areas where you notice issues. Be as specific as possible.</p>
             {FOOT_PAIN_LOCATION_CATEGORIES.map(cat => (
-              <div key={cat.label} style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>{cat.label}</div>
+              <div key={cat.label} className="mt-4">
+                <div className="text-xs text-muted mb-2">{cat.label}</div>
                 <div className="chip-group">
                   {cat.locations.map(loc => (
                     <button
@@ -228,8 +227,8 @@ export default function FootCalibratePage() {
             <h2>Which activities are affected?</h2>
             <p className="muted">Select activities that feel limited or provoke symptoms.</p>
             {FOOT_MOVEMENT_CATEGORIES.map(cat => (
-              <div key={cat.label} style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>{cat.label}</div>
+              <div key={cat.label} className="mt-4">
+                <div className="text-xs text-muted mb-2">{cat.label}</div>
                 <div className="chip-group">
                   {cat.movements.map(m => (
                     <button
@@ -251,7 +250,7 @@ export default function FootCalibratePage() {
           <>
             <h2>When do issues typically occur?</h2>
             <p className="muted">Select all that apply.</p>
-            <div className="chip-group" style={{ marginTop: 16 }}>
+            <div className="chip-group mt-4">
               {ISSUE_CONTEXTS.map(ctx => (
                 <button
                   key={ctx}
@@ -270,16 +269,15 @@ export default function FootCalibratePage() {
           <>
             <h2>What's your main goal?</h2>
             <p className="muted">This helps us prioritize the right exercises.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+            <div className="flex flex-col gap-2 mt-4">
               {REHAB_GOALS.map(goal => (
                 <button
                   key={goal}
-                  className={`chip ${calibration.primaryGoal === goal ? "selected" : ""}`}
+                  className={`chip w-full text-left py-3 px-4 ${calibration.primaryGoal === goal ? "selected" : ""}`}
                   onClick={() => setCalibration(prev => ({ ...prev, primaryGoal: goal }))}
-                  style={{ width: "100%", textAlign: "left", padding: "12px 16px" }}
                 >
-                  <div style={{ fontWeight: 500 }}>{REHAB_GOAL_INFO[goal].label}</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>{REHAB_GOAL_INFO[goal].description}</div>
+                  <div className="font-medium">{REHAB_GOAL_INFO[goal].label}</div>
+                  <div className="text-xs opacity-70">{REHAB_GOAL_INFO[goal].description}</div>
                 </button>
               ))}
             </div>
@@ -291,8 +289,8 @@ export default function FootCalibratePage() {
           <>
             <h2>Profile Complete! ✓</h2>
             <p className="muted">Your foot profile has been saved.</p>
-            <div className="card" style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 13 }}>
+            <div className="card mt-4">
+              <div className="text-[13px]">
                 <p><strong>Affected Side:</strong> {calibration.affectedSide}</p>
                 <p><strong>Problem Situations:</strong> {calibration.problemZones?.map(pz => FOOT_FUNCTIONAL_ZONES[pz.zoneIndex]?.label).join(", ") || "None"}</p>
                 <p><strong>Pain Locations:</strong> {calibration.painLocations?.map(l => FOOT_PAIN_LOCATION_LABELS[l]).join(", ") || "None"}</p>
@@ -300,7 +298,7 @@ export default function FootCalibratePage() {
                 <p><strong>Goal:</strong> {REHAB_GOAL_INFO[calibration.primaryGoal || "full_performance"].label}</p>
               </div>
             </div>
-            <button className="btn btn-primary" onClick={saveCalibration} style={{ width: "100%", marginTop: 20 }}>
+            <button className="btn btn-primary w-full mt-5" onClick={saveCalibration}>
               Go to Daily Check-in
             </button>
           </>
@@ -312,11 +310,11 @@ export default function FootCalibratePage() {
   };
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
+    <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
       <div className="card">
         {renderStep()}
         {step > 0 && step < 7 && (
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 24 }}>
+          <div className="flex items-center justify-between mt-6">
             <button className="btn" onClick={() => setStep(step - 1)}>Back</button>
             <button className="btn btn-primary" onClick={() => setStep(step + 1)}>Continue</button>
           </div>

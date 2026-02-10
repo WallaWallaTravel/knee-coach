@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BodyPart, BODY_PART_INFO } from "@/lib/body-parts";
 import { BodyPartSelector } from "@/app/components/BodyPartSelector";
-
-// Body Coach - Multi-region rehabilitation app
+import { safeGet, safeSet } from "@/lib/storage/safe-storage";
 
 export default function SelectBodyPartPage() {
   const router = useRouter();
@@ -20,46 +19,30 @@ export default function SelectBodyPartPage() {
   const [aiEnabled, setAiEnabled] = useState(false);
 
   useEffect(() => {
-    // Check which body parts have calibration profiles
-    const kneeProfile = localStorage.getItem("bodyCoach.knee.calibration");
-    const achillesProfile = localStorage.getItem("bodyCoach.achilles.calibration");
-    const shoulderProfile = localStorage.getItem("bodyCoach.shoulder.calibration");
-    const footProfile = localStorage.getItem("bodyCoach.foot.calibration");
-    
     setProfiles({
-      knee: !!kneeProfile,
-      achilles: !!achillesProfile,
-      shoulder: !!shoulderProfile,
-      foot: !!footProfile,
+      knee: safeGet("bodyCoach.knee.calibration", null) !== null,
+      achilles: safeGet("bodyCoach.achilles.calibration", null) !== null,
+      shoulder: safeGet("bodyCoach.shoulder.calibration", null) !== null,
+      foot: safeGet("bodyCoach.foot.calibration", null) !== null,
     });
 
-    // Check for last used body part
-    const lastUsed = localStorage.getItem("bodyCoach.lastBodyPart") as BodyPart | null;
+    const lastUsed = safeGet<string | null>("bodyCoach.lastBodyPart", null) as BodyPart | null;
     if (lastUsed && ["knee", "achilles", "shoulder", "foot"].includes(lastUsed)) {
       setSelected(lastUsed);
     }
 
-    // Check if AI is enabled
-    const aiSettings = localStorage.getItem("bodyCoach.settings.ai");
+    const aiSettings = safeGet<{ enableAIFeatures?: boolean } | null>("bodyCoach.settings.ai", null);
     if (aiSettings) {
-      try {
-        const settings = JSON.parse(aiSettings);
-        setAiEnabled(settings.enableAIFeatures);
-      } catch (e) {
-        // ignore
-      }
+      setAiEnabled(!!aiSettings.enableAIFeatures);
     }
   }, []);
 
   function handleContinue() {
     if (!selected) return;
-    
-    localStorage.setItem("bodyCoach.lastBodyPart", selected);
-    
-    // Check if this body part has a calibration profile
-    const hasProfile = profiles[selected];
-    
-    if (hasProfile) {
+
+    safeSet("bodyCoach.lastBodyPart", selected);
+
+    if (profiles[selected]) {
       router.push(`/${selected}`);
     } else {
       router.push(`/${selected}/calibrate`);
@@ -67,48 +50,47 @@ export default function SelectBodyPartPage() {
   }
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
+    <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
       {/* Header with settings */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-        <Link href="/settings" className="btn" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="flex justify-end mb-2">
+        <Link href="/settings" className="btn flex items-center gap-1.5">
           <span>⚙️</span>
           <span>Settings</span>
-          {aiEnabled && <span style={{ color: "#22c55e" }}>✨</span>}
+          {aiEnabled && <span className="text-green-500">✨</span>}
         </Link>
       </div>
 
-      <div style={{ textAlign: "center", marginBottom: 24, marginTop: 24 }}>
-        <h1 style={{ fontSize: 32, marginBottom: 8 }}>Body Coach</h1>
+      <div className="text-center mb-6 mt-6">
+        <h1 className="text-3xl mb-2">Body Coach</h1>
         <p className="muted">Your personal rehabilitation companion</p>
       </div>
 
-      <div className="card" style={{ marginTop: 24 }}>
+      <div className="card mt-6">
         <div className="section-header">What are we working on today?</div>
-        <BodyPartSelector 
-          selected={selected} 
+        <BodyPartSelector
+          selected={selected}
           onSelect={setSelected}
           showDescription={true}
         />
       </div>
 
       {selected && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 40 }}>{BODY_PART_INFO[selected].icon}</span>
+        <div className="card mt-4">
+          <div className="flex items-center gap-3">
+            <span className="text-[40px]">{BODY_PART_INFO[selected].icon}</span>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 600 }}>{BODY_PART_INFO[selected].name}</div>
-              <div className="muted" style={{ fontSize: 13 }}>
-                {profiles[selected] 
-                  ? "Profile saved • Ready for daily check-in" 
-                  : "No profile yet • Let's calibrate"}
+              <div className="text-xl font-semibold">{BODY_PART_INFO[selected].name}</div>
+              <div className="muted text-[13px]">
+                {profiles[selected]
+                  ? "Profile saved \u2022 Ready for daily check-in"
+                  : "No profile yet \u2022 Let's calibrate"}
               </div>
             </div>
           </div>
-          
-          <button 
-            className="btn btn-primary" 
+
+          <button
+            className="btn btn-primary w-full mt-4"
             onClick={handleContinue}
-            style={{ width: "100%", marginTop: 16 }}
           >
             {profiles[selected] ? "Start Daily Check-in" : "Set Up Profile"}
           </button>
@@ -117,25 +99,20 @@ export default function SelectBodyPartPage() {
 
       {/* Quick access to existing profiles */}
       {Object.entries(profiles).some(([_, has]) => has) && (
-        <div style={{ marginTop: 24 }}>
+        <div className="mt-6">
           <div className="section-header">Your Profiles</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="flex gap-2 flex-wrap">
             {(Object.entries(profiles) as [BodyPart, boolean][])
               .filter(([_, has]) => has)
               .map(([part]) => (
                 <button
                   key={part}
-                  className="btn"
+                  className="btn flex items-center gap-1.5"
                   onClick={() => {
-                    localStorage.setItem("bodyCoach.lastBodyPart", part);
+                    safeSet("bodyCoach.lastBodyPart", part);
                     router.push(`/${part}`);
                   }}
-                  style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: 6,
-                    borderColor: BODY_PART_INFO[part].color,
-                  }}
+                  style={{ borderColor: BODY_PART_INFO[part].color }}
                 >
                   <span>{BODY_PART_INFO[part].icon}</span>
                   <span>{BODY_PART_INFO[part].name}</span>
@@ -145,7 +122,7 @@ export default function SelectBodyPartPage() {
         </div>
       )}
 
-      <p className="muted" style={{ marginTop: 32, fontSize: 12, textAlign: "center" }}>
+      <p className="muted mt-8 text-xs text-center">
         Each body part has its own calibration profile and exercise library tailored to that region.
       </p>
     </main>

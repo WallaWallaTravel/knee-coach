@@ -3,3 +3,4 @@
  */
 
 export * from "./outcomes";
+export * from "./analytics";

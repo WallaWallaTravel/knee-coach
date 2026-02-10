@@ -18,7 +18,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-black focus:rounded-lg focus:m-2"
+        >
+          Skip to main content
+        </a>
+        <div id="main-content">
         {children}
+        </div>
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { safeGet, safeSet } from "@/lib/storage/safe-storage";
 import {
   KNEE_ROM_ZONES,
   KneeCalibrationProfile,
@@ -35,9 +36,8 @@ export default function KneeCalibratePage() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("bodyCoach.knee.calibration");
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const parsed = safeGet<(KneeCalibrationProfile & { notes?: string }) | null>("bodyCoach.knee.calibration", null);
+    if (parsed) {
       setCalibration(parsed);
       setNotes(parsed.notes || "");
     }
@@ -74,7 +74,7 @@ export default function KneeCalibratePage() {
       movementRestrictions: calibration.movementRestrictions || [],
       notes: notes || undefined,
     };
-    localStorage.setItem("bodyCoach.knee.calibration", JSON.stringify(final));
+    safeSet("bodyCoach.knee.calibration", final);
     router.push("/knee");
   };
 
@@ -85,37 +85,20 @@ export default function KneeCalibratePage() {
       case 0:
         return (
           <>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 48 }}>{info.icon}</div>
-              <h2 style={{ margin: "12px 0 8px" }}>Knee Profile</h2>
+            <div className="text-center mb-5">
+              <div className="text-5xl">{info.icon}</div>
+              <h2 className="mt-3 mb-2">Knee Profile</h2>
               <p className="muted">Quick setup to personalize your rehab.</p>
             </div>
-            <div style={{
-              background: "#1a1a1d",
-              borderRadius: 10,
-              padding: 14,
-              marginTop: 16,
-            }}>
-              <div style={{ fontSize: 13, color: "#9ca3af" }}>
+            <div className="bg-surface-raised rounded-[10px] p-3.5 mt-4">
+              <div className="text-[13px] text-muted">
                 We'll cover:
               </div>
-              <div style={{
-                display: "flex",
-                gap: 8,
-                marginTop: 10,
-                flexWrap: "wrap",
-              }}>
+              <div className="flex gap-2 mt-2.5 flex-wrap">
                 {["Pain location", "Movements", "Your goal"].map((item, i) => (
                   <span
                     key={item}
-                    style={{
-                      fontSize: 12,
-                      padding: "4px 10px",
-                      borderRadius: 6,
-                      background: "#0b0b0c",
-                      border: "1px solid #2a2a2d",
-                      color: "#b7bcc6",
-                    }}
+                    className="text-xs px-2.5 py-1 rounded-md bg-surface border border-surface-border text-muted"
                   >
                     {i + 1}. {item}
                   </span>
@@ -123,17 +106,15 @@ export default function KneeCalibratePage() {
               </div>
             </div>
             <button
-              className="btn btn-primary"
+              className="btn btn-primary w-full mt-5"
               onClick={() => setStep(1)}
-              style={{ width: "100%", marginTop: 20 }}
             >
               Get Started
             </button>
             {calibration.createdAt && (
               <button
-                className="btn"
+                className="btn w-full mt-2"
                 onClick={() => router.push("/knee")}
-                style={{ width: "100%", marginTop: 8 }}
               >
                 Keep Current Profile
               </button>
@@ -144,8 +125,8 @@ export default function KneeCalibratePage() {
       case 1:
         return (
           <>
-            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Where does it hurt?</h2>
-            <p className="muted" style={{ marginBottom: 16 }}>
+            <h2 className="mt-0 mb-2">Where does it hurt?</h2>
+            <p className="muted mb-4">
               Tap the areas on the diagram where you feel symptoms.
             </p>
 
@@ -155,11 +136,7 @@ export default function KneeCalibratePage() {
             />
 
             {(calibration.painLocations?.length || 0) === 0 && (
-              <p className="muted" style={{
-                textAlign: "center",
-                padding: 16,
-                fontSize: 13,
-              }}>
+              <p className="muted text-center p-4 text-[13px]">
                 Tap zones on the diagram or labels below them
               </p>
             )}
@@ -169,13 +146,13 @@ export default function KneeCalibratePage() {
       case 2:
         return (
           <>
-            <h2 style={{ marginTop: 0 }}>Which movements are affected?</h2>
-            <p className="muted" style={{ marginBottom: 16 }}>
+            <h2 className="mt-0">Which movements are affected?</h2>
+            <p className="muted mb-4">
               Select movements that feel limited or provoke symptoms.
             </p>
             {KNEE_MOVEMENT_CATEGORIES.map(cat => (
-              <div key={cat.label} style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>{cat.label}</div>
+              <div key={cat.label} className="mt-4">
+                <div className="text-xs text-muted mb-2">{cat.label}</div>
                 <div className="chip-group">
                   {cat.movements.map(m => (
                     <button
@@ -195,20 +172,19 @@ export default function KneeCalibratePage() {
       case 3:
         return (
           <>
-            <h2 style={{ marginTop: 0 }}>What's your main goal?</h2>
-            <p className="muted" style={{ marginBottom: 16 }}>
+            <h2 className="mt-0">What's your main goal?</h2>
+            <p className="muted mb-4">
               This helps prioritize the right exercises for you.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {REHAB_GOALS.map(goal => (
                 <button
                   key={goal}
-                  className={`chip ${calibration.primaryGoal === goal ? "selected" : ""}`}
+                  className={`chip w-full text-left py-3 px-4 ${calibration.primaryGoal === goal ? "selected" : ""}`}
                   onClick={() => setCalibration(prev => ({ ...prev, primaryGoal: goal }))}
-                  style={{ width: "100%", textAlign: "left", padding: "12px 16px" }}
                 >
-                  <div style={{ fontWeight: 500 }}>{REHAB_GOAL_INFO[goal].label}</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>{REHAB_GOAL_INFO[goal].description}</div>
+                  <div className="font-medium">{REHAB_GOAL_INFO[goal].label}</div>
+                  <div className="text-xs opacity-70">{REHAB_GOAL_INFO[goal].description}</div>
                 </button>
               ))}
             </div>
@@ -218,17 +194,12 @@ export default function KneeCalibratePage() {
       case 4:
         return (
           <>
-            <h2 style={{ marginTop: 0 }}>Profile Ready</h2>
+            <h2 className="mt-0">Profile Ready</h2>
             <p className="muted">Your knee profile has been configured.</p>
 
-            <div style={{
-              background: "#1a1a1d",
-              borderRadius: 10,
-              padding: 14,
-              marginTop: 16,
-            }}>
-              <div style={{ fontSize: 13, marginBottom: 12 }}>
-                <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 4 }}>PAIN LOCATIONS</div>
+            <div className="bg-surface-raised rounded-[10px] p-3.5 mt-4">
+              <div className="text-[13px] mb-3">
+                <div className="text-muted text-[11px] mb-1">PAIN LOCATIONS</div>
                 <div>
                   {calibration.painLocations?.length
                     ? calibration.painLocations.length + " selected"
@@ -237,8 +208,8 @@ export default function KneeCalibratePage() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 13, marginBottom: 12 }}>
-                <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 4 }}>AFFECTED MOVEMENTS</div>
+              <div className="text-[13px] mb-3">
+                <div className="text-muted text-[11px] mb-1">AFFECTED MOVEMENTS</div>
                 <div>
                   {calibration.movementRestrictions?.length
                     ? calibration.movementRestrictions.length + " selected"
@@ -247,15 +218,15 @@ export default function KneeCalibratePage() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 13 }}>
-                <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 4 }}>GOAL</div>
-                <div style={{ fontWeight: 500 }}>
+              <div className="text-[13px]">
+                <div className="text-muted text-[11px] mb-1">GOAL</div>
+                <div className="font-medium">
                   {REHAB_GOAL_INFO[calibration.primaryGoal || "full_performance"].label}
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <ExpandableNotes
                 value={notes}
                 onChange={setNotes}
@@ -265,9 +236,8 @@ export default function KneeCalibratePage() {
             </div>
 
             <button
-              className="btn btn-primary"
+              className="btn btn-primary w-full mt-5"
               onClick={saveCalibration}
-              style={{ width: "100%", marginTop: 20 }}
             >
               Save & Continue
             </button>
@@ -283,29 +253,18 @@ export default function KneeCalibratePage() {
   const progress = ((step) / (totalSteps - 1)) * 100;
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
+    <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
       {/* Progress indicator */}
       {step > 0 && step < 4 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 4,
-            fontSize: 12,
-            color: "#9ca3af",
-          }}>
+        <div className="mb-4">
+          <div className="flex justify-between mb-1 text-xs text-muted">
             <span>Setup</span>
             <span>Step {step} of 3</span>
           </div>
-          <div style={{ height: 4, background: "#2a2a2d", borderRadius: 2 }}>
+          <div className="h-1 bg-surface-border rounded-sm">
             <div
-              style={{
-                height: "100%",
-                width: `${progress}%`,
-                background: "#6366f1",
-                borderRadius: 2,
-                transition: "width 0.3s ease",
-              }}
+              className="h-full bg-indigo-500 rounded-sm transition-all duration-300"
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
@@ -314,7 +273,7 @@ export default function KneeCalibratePage() {
       <div className="card">
         {renderStep()}
         {step > 0 && step < 4 && (
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 24 }}>
+          <div className="flex items-center justify-between mt-6">
             <button className="btn" onClick={() => setStep(step - 1)}>Back</button>
             <button
               className="btn btn-primary"
@@ -326,9 +285,8 @@ export default function KneeCalibratePage() {
         )}
         {step === 4 && (
           <button
-            className="btn"
+            className="btn w-full mt-2"
             onClick={() => setStep(step - 1)}
-            style={{ width: "100%", marginTop: 8 }}
           >
             Back to Edit
           </button>

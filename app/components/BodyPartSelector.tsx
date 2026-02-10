@@ -13,15 +13,18 @@ export function BodyPartSelector({ selected, onSelect, showDescription = true }:
   const bodyParts: BodyPart[] = ["knee", "achilles", "shoulder", "foot"];
   
   return (
-    <div className="body-part-selector">
+    <div className="body-part-selector" role="radiogroup" aria-label="Select body part">
       <div className="body-part-grid">
         {bodyParts.map((part) => {
           const info = BODY_PART_INFO[part];
           const isSelected = selected === part;
-          
+
           return (
             <button
               key={part}
+              role="radio"
+              aria-checked={isSelected}
+              aria-label={`${info.name}: ${info.description}`}
               className={`body-part-card ${isSelected ? "selected" : ""}`}
               onClick={() => onSelect(part)}
               style={{
@@ -54,15 +57,18 @@ export function BodyPartTabs({
   const bodyParts: BodyPart[] = ["knee", "achilles", "shoulder", "foot"];
   
   return (
-    <div className="body-part-tabs">
+    <div className="body-part-tabs" role="tablist" aria-label="Body part selection">
       {bodyParts.map((part) => {
         const info = BODY_PART_INFO[part];
         const isSelected = selected === part;
         const hasProfile = profiles?.[part];
-        
+
         return (
           <button
             key={part}
+            role="tab"
+            aria-selected={isSelected}
+            aria-label={`${info.name}${hasProfile ? " (profile set up)" : ""}`}
             className={`body-part-tab ${isSelected ? "selected" : ""} ${hasProfile ? "has-profile" : ""}`}
             onClick={() => onSelect(part)}
             style={{

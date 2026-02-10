@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { safeGet, safeSet, safeRemove, getStorageUsage, pruneOldData } from "@/lib/storage/safe-storage";
+import { downloadExport, importData } from "@/lib/storage/data-export";
 
 interface AISettings {
   provider: "openai" | "anthropic" | "none";
@@ -22,7 +24,7 @@ const STORAGE_KEY_APP = "bodyCoach.settings.app";
 export default function SettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"general" | "ai" | "data">("general");
-  
+
   // AI Settings
   const [aiSettings, setAiSettings] = useState<AISettings>({
     provider: "none",
@@ -41,36 +43,40 @@ export default function SettingsPage() {
     dataExport: true,
   });
 
+  // Storage management
+  const [storageInfo, setStorageInfo] = useState<{ usedBytes: number; keys: number }>({ usedBytes: 0, keys: 0 });
+  const [importStatus, setImportStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+  const [pruneStatus, setPruneStatus] = useState<{ type: "idle" | "success"; message: string }>({ type: "idle", message: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshStorageInfo = useCallback(() => {
+    setStorageInfo(getStorageUsage());
+  }, []);
+
   // Load settings on mount
   useEffect(() => {
-    const savedAI = localStorage.getItem(STORAGE_KEY_AI);
+    const savedAI = safeGet<AISettings | null>(STORAGE_KEY_AI, null);
     if (savedAI) {
-      try {
-        setAiSettings(JSON.parse(savedAI));
-      } catch (e) {
-        console.error("Failed to parse AI settings");
-      }
+      setAiSettings(savedAI);
     }
 
-    const savedApp = localStorage.getItem(STORAGE_KEY_APP);
+    const savedApp = safeGet<AppSettings | null>(STORAGE_KEY_APP, null);
     if (savedApp) {
-      try {
-        setAppSettings(JSON.parse(savedApp));
-      } catch (e) {
-        console.error("Failed to parse app settings");
-      }
+      setAppSettings(savedApp);
     }
-  }, []);
+
+    refreshStorageInfo();
+  }, [refreshStorageInfo]);
 
   // Save AI settings
   const saveAISettings = () => {
-    localStorage.setItem(STORAGE_KEY_AI, JSON.stringify(aiSettings));
+    safeSet(STORAGE_KEY_AI, aiSettings);
     setConnectionStatus("idle");
   };
 
   // Save app settings
   const saveAppSettings = () => {
-    localStorage.setItem(STORAGE_KEY_APP, JSON.stringify(appSettings));
+    safeSet(STORAGE_KEY_APP, appSettings);
   };
 
   // Test API connection
@@ -100,11 +106,10 @@ export default function SettingsPage() {
       if (response.ok) {
         setConnectionStatus("success");
         setConnectionMessage("Connection successful! AI features are ready.");
-        // Save settings on successful test
-        localStorage.setItem(STORAGE_KEY_AI, JSON.stringify({
+        safeSet(STORAGE_KEY_AI, {
           ...aiSettings,
           enableAIFeatures: true
-        }));
+        });
         setAiSettings(prev => ({ ...prev, enableAIFeatures: true }));
       } else {
         const error = await response.json();
@@ -119,92 +124,99 @@ export default function SettingsPage() {
     }
   };
 
-  // Export data
-  const exportData = () => {
-    const data: Record<string, unknown> = {};
-    
-    // Collect all bodyCoach data from localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith("bodyCoach.")) {
-        try {
-          data[key] = JSON.parse(localStorage.getItem(key) || "");
-        } catch {
-          data[key] = localStorage.getItem(key);
-        }
-      }
-    }
+  // Handle file import
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `body-coach-export-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const json = event.target?.result as string;
+      const result = importData(json);
+      if (result.success) {
+        setImportStatus({ type: "success", message: `Imported ${result.keysImported} items successfully.` });
+        refreshStorageInfo();
+      } else {
+        setImportStatus({ type: "error", message: result.error || "Import failed." });
+      }
+    };
+    reader.onerror = () => {
+      setImportStatus({ type: "error", message: "Failed to read file." });
+    };
+    reader.readAsText(file);
+
+    e.target.value = "";
+  };
+
+  // Handle cleanup
+  const handleCleanup = () => {
+    if (confirm("Remove check-in and session data older than 90 days? Milestones and profiles are preserved.")) {
+      const removed = pruneOldData(90);
+      setPruneStatus({ type: "success", message: `Removed ${removed} old entries.` });
+      refreshStorageInfo();
+    }
   };
 
   // Clear all data
   const clearAllData = () => {
     if (confirm("Are you sure you want to delete all your data? This cannot be undone.")) {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith("bodyCoach.")) {
-          keysToRemove.push(key);
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith("bodyCoach.")) {
+            keysToRemove.push(key);
+          }
         }
+        keysToRemove.forEach(key => safeRemove(key));
+      } catch {
+        // Ignore errors during bulk delete
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
       alert("All data has been cleared.");
       router.push("/select");
     }
   };
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>Settings</h1>
+    <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="m-0">Settings</h1>
         <Link href="/select" className="btn">← Back</Link>
       </div>
 
       {/* Tab Navigation */}
-      <div className="settings-tabs">
-        <button
-          className={`tab ${activeTab === "general" ? "active" : ""}`}
-          onClick={() => setActiveTab("general")}
-        >
-          General
-        </button>
-        <button
-          className={`tab ${activeTab === "ai" ? "active" : ""}`}
-          onClick={() => setActiveTab("ai")}
-        >
-          AI Features
-        </button>
-        <button
-          className={`tab ${activeTab === "data" ? "active" : ""}`}
-          onClick={() => setActiveTab("data")}
-        >
-          Data
-        </button>
+      <div className="flex gap-1 p-1 bg-surface-raised rounded-[10px]">
+        {(["general", "ai", "data"] as const).map((tab) => (
+          <button
+            key={tab}
+            className={`flex-1 py-2.5 px-3 border-none rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 ${
+              activeTab === tab
+                ? "bg-surface-border text-gray-100"
+                : "bg-transparent text-muted hover:bg-[#222226] hover:text-gray-100"
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "general" ? "General" : tab === "ai" ? "AI Features" : "Data"}
+          </button>
+        ))}
       </div>
 
       {/* General Tab */}
       {activeTab === "general" && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-3">
           <h3 className="section-header">App Preferences</h3>
-          
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">Theme</span>
-              <span className="setting-description">Choose your preferred color scheme</span>
+
+          <div className="flex justify-between items-center py-3.5 border-b border-surface-border">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] font-medium">Theme</span>
+              <span className="text-xs text-muted">Choose your preferred color scheme</span>
             </div>
             <select
               value={appSettings.theme}
               onChange={(e) => {
                 setAppSettings(prev => ({ ...prev, theme: e.target.value as "dark" | "light" | "system" }));
               }}
-              className="setting-select"
+              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
             >
               <option value="dark">Dark</option>
               <option value="light">Light (coming soon)</option>
@@ -212,22 +224,22 @@ export default function SettingsPage() {
             </select>
           </div>
 
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">Notifications</span>
-              <span className="setting-description">Reminder notifications (coming soon)</span>
+          <div className="flex justify-between items-center py-3.5">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] font-medium">Notifications</span>
+              <span className="text-xs text-muted">Reminder notifications (coming soon)</span>
             </div>
-            <label className="toggle">
+            <label className="settings-toggle">
               <input
                 type="checkbox"
                 checked={appSettings.notifications}
                 onChange={(e) => setAppSettings(prev => ({ ...prev, notifications: e.target.checked }))}
               />
-              <span className="toggle-slider"></span>
+              <span className="settings-toggle-slider"></span>
             </label>
           </div>
 
-          <button className="btn btn-primary" onClick={saveAppSettings} style={{ marginTop: 16 }}>
+          <button className="btn btn-primary mt-4" onClick={saveAppSettings}>
             Save Preferences
           </button>
         </div>
@@ -235,30 +247,30 @@ export default function SettingsPage() {
 
       {/* AI Features Tab */}
       {activeTab === "ai" && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-3">
           <h3 className="section-header">AI-Powered Features</h3>
-          
-          <p className="muted" style={{ marginBottom: 16 }}>
+
+          <p className="muted mb-4">
             Enable AI features for personalized explanations, smart calibration, and progress insights.
             Your API key is stored locally and never sent to our servers.
           </p>
 
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">AI Provider</span>
-              <span className="setting-description">Choose your preferred AI service</span>
+          <div className="flex justify-between items-center py-3.5 border-b border-surface-border">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] font-medium">AI Provider</span>
+              <span className="text-xs text-muted">Choose your preferred AI service</span>
             </div>
             <select
               value={aiSettings.provider}
               onChange={(e) => {
-                setAiSettings(prev => ({ 
-                  ...prev, 
+                setAiSettings(prev => ({
+                  ...prev,
                   provider: e.target.value as "openai" | "anthropic" | "none",
-                  enableAIFeatures: false 
+                  enableAIFeatures: false
                 }));
                 setConnectionStatus("idle");
               }}
-              className="setting-select"
+              className="px-3 py-2 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
             >
               <option value="none">None (Disabled)</option>
               <option value="openai">OpenAI (GPT-4)</option>
@@ -268,16 +280,16 @@ export default function SettingsPage() {
 
           {aiSettings.provider !== "none" && (
             <>
-              <div className="setting-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
-                <div className="setting-info" style={{ marginBottom: 8 }}>
-                  <span className="setting-label">API Key</span>
-                  <span className="setting-description">
-                    {aiSettings.provider === "openai" 
-                      ? "Get your key from platform.openai.com" 
+              <div className="flex flex-col items-stretch py-3.5 border-b border-surface-border">
+                <div className="flex flex-col gap-0.5 mb-2">
+                  <span className="text-[15px] font-medium">API Key</span>
+                  <span className="text-xs text-muted">
+                    {aiSettings.provider === "openai"
+                      ? "Get your key from platform.openai.com"
                       : "Get your key from console.anthropic.com"}
                   </span>
                 </div>
-                <div className="api-key-input">
+                <div className="flex gap-2">
                   <input
                     type={showApiKey ? "text" : "password"}
                     value={aiSettings.apiKey}
@@ -286,10 +298,10 @@ export default function SettingsPage() {
                       setConnectionStatus("idle");
                     }}
                     placeholder={`Enter your ${aiSettings.provider === "openai" ? "OpenAI" : "Anthropic"} API key`}
-                    className="input-field"
+                    className="flex-1 px-3 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm"
                   />
-                  <button 
-                    className="btn btn-small"
+                  <button
+                    className="btn px-3 py-2 text-[13px]"
                     onClick={() => setShowApiKey(!showApiKey)}
                   >
                     {showApiKey ? "Hide" : "Show"}
@@ -297,15 +309,15 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="api-key-actions">
-                <button 
+              <div className="flex gap-2 mt-4">
+                <button
                   className="btn btn-primary"
                   onClick={testConnection}
                   disabled={testingConnection || !aiSettings.apiKey}
                 >
                   {testingConnection ? "Testing..." : "Test Connection"}
                 </button>
-                <button 
+                <button
                   className="btn"
                   onClick={saveAISettings}
                 >
@@ -314,8 +326,12 @@ export default function SettingsPage() {
               </div>
 
               {connectionStatus !== "idle" && (
-                <div className={`connection-status ${connectionStatus}`}>
-                  <span className="status-icon">
+                <div className={`flex items-center gap-2 p-3 rounded-lg mt-3 text-sm ${
+                  connectionStatus === "success"
+                    ? "bg-green-500/15 text-green-500"
+                    : "bg-red-500/15 text-red-500"
+                }`}>
+                  <span className="text-lg">
                     {connectionStatus === "success" ? "✓" : "✗"}
                   </span>
                   <span>{connectionMessage}</span>
@@ -323,348 +339,146 @@ export default function SettingsPage() {
               )}
 
               {aiSettings.enableAIFeatures && (
-                <div className="ai-features-enabled">
-                  <span className="enabled-icon">✨</span>
+                <div className="flex items-center gap-2 p-3 bg-indigo-500/15 rounded-lg mt-3 text-indigo-300 text-sm">
+                  <span className="text-lg">✨</span>
                   <span>AI features are enabled</span>
                 </div>
               )}
             </>
           )}
 
-          <hr style={{ margin: "20px 0" }} />
+          <hr className="my-5" />
 
-          <h4 style={{ margin: "0 0 12px 0" }}>Available AI Features</h4>
-          <ul className="feature-list">
-            <li>
-              <span className="feature-icon">💬</span>
-              <div>
-                <strong>Smart Calibration</strong>
-                <p>AI-guided conversation to precisely describe your issues</p>
-              </div>
-            </li>
-            <li>
-              <span className="feature-icon">📖</span>
-              <div>
-                <strong>Exercise Explanations</strong>
-                <p>Understand why each exercise helps your specific situation</p>
-              </div>
-            </li>
-            <li>
-              <span className="feature-icon">📊</span>
-              <div>
-                <strong>Progress Analysis</strong>
-                <p>AI insights on your trends and patterns</p>
-              </div>
-            </li>
-            <li>
-              <span className="feature-icon">⚠️</span>
-              <div>
-                <strong>Red Flag Guidance</strong>
-                <p>Clear explanations when symptoms need attention</p>
-              </div>
-            </li>
+          <h4 className="m-0 mb-3">Available AI Features</h4>
+          <ul className="list-none p-0 m-0">
+            {[
+              { icon: "💬", title: "Smart Calibration", desc: "AI-guided conversation to precisely describe your issues" },
+              { icon: "📖", title: "Exercise Explanations", desc: "Understand why each exercise helps your specific situation" },
+              { icon: "📊", title: "Progress Analysis", desc: "AI insights on your trends and patterns" },
+              { icon: "⚠️", title: "Red Flag Guidance", desc: "Clear explanations when symptoms need attention" },
+            ].map((feature, i) => (
+              <li key={i} className="flex gap-3 py-3 border-b border-surface-border last:border-b-0">
+                <span className="text-2xl">{feature.icon}</span>
+                <div>
+                  <strong className="block text-sm mb-0.5">{feature.title}</strong>
+                  <p className="m-0 text-xs text-muted">{feature.desc}</p>
+                </div>
+              </li>
+            ))}
           </ul>
 
-          <div className="cost-estimate">
-            <strong>Estimated Cost</strong>
-            <p>Most interactions cost $0.01-0.05. A typical month of daily use costs $1-5.</p>
+          <div className="p-3 bg-surface-raised rounded-lg mt-4">
+            <strong className="block text-[13px] mb-1">Estimated Cost</strong>
+            <p className="m-0 text-xs text-muted">Most interactions cost $0.01-0.05. A typical month of daily use costs $1-5.</p>
           </div>
         </div>
       )}
 
       {/* Data Tab */}
       {activeTab === "data" && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-3">
           <h3 className="section-header">Your Data</h3>
-          
-          <p className="muted" style={{ marginBottom: 16 }}>
-            All your data is stored locally on your device. We don't have access to it.
+
+          <p className="muted mb-4">
+            All your data is stored locally on your device. We don&apos;t have access to it.
           </p>
 
-          <div className="data-actions">
-            <button className="btn" onClick={exportData}>
-              📥 Export All Data
+          {/* Storage Usage */}
+          <div className="p-4 bg-surface-raised rounded-[10px]">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[15px] font-medium">Storage Used</span>
+              <span className="text-[13px] text-muted">
+                {storageInfo.usedBytes < 1024
+                  ? `${storageInfo.usedBytes} B`
+                  : storageInfo.usedBytes < 1024 * 1024
+                  ? `${(storageInfo.usedBytes / 1024).toFixed(1)} KB`
+                  : `${(storageInfo.usedBytes / (1024 * 1024)).toFixed(2)} MB`}
+                {" "}across {storageInfo.keys} keys
+              </span>
+            </div>
+            <div className="h-2 bg-surface-border rounded overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded transition-[width] duration-300 ease-in-out min-w-[2px]"
+                style={{ width: `${Math.min((storageInfo.usedBytes / (5 * 1024 * 1024)) * 100, 100)}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-muted mt-1 block">of ~5 MB localStorage limit</span>
+          </div>
+
+          <hr className="my-5" />
+
+          {/* Export */}
+          <div className="p-4 bg-surface-raised rounded-[10px]">
+            <button className="btn" onClick={downloadExport}>
+              Export All Data
             </button>
-            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              Download a JSON file with all your check-ins, progress, and settings
+            <p className="muted text-xs mt-1">
+              Download a JSON backup of all your check-ins, progress, and settings
             </p>
           </div>
 
-          <hr style={{ margin: "20px 0" }} />
+          <hr className="my-5" />
 
-          <h4 style={{ margin: "0 0 12px 0", color: "#ef4444" }}>Danger Zone</h4>
-          
-          <div className="danger-zone">
-            <p className="muted">
+          {/* Import */}
+          <div className="p-4 bg-surface-raised rounded-[10px]">
+            <button className="btn" onClick={() => fileInputRef.current?.click()}>
+              Import Data
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+            <p className="muted text-xs mt-1">
+              Restore data from a previously exported JSON backup
+            </p>
+            {importStatus.type !== "idle" && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg mt-2 text-sm ${
+                importStatus.type === "success"
+                  ? "bg-green-500/15 text-green-500"
+                  : "bg-red-500/15 text-red-500"
+              }`}>
+                <span className="text-lg">{importStatus.type === "success" ? "✓" : "✗"}</span>
+                <span>{importStatus.message}</span>
+              </div>
+            )}
+          </div>
+
+          <hr className="my-5" />
+
+          {/* Cleanup */}
+          <div className="p-4 bg-surface-raised rounded-[10px]">
+            <button className="btn" onClick={handleCleanup}>
+              Clean Up Old Data
+            </button>
+            <p className="muted text-xs mt-1">
+              Remove check-ins and sessions older than 90 days. Profiles and milestones are kept.
+            </p>
+            {pruneStatus.type === "success" && (
+              <div className="flex items-center gap-2 p-3 rounded-lg mt-2 text-sm bg-green-500/15 text-green-500">
+                <span className="text-lg">✓</span>
+                <span>{pruneStatus.message}</span>
+              </div>
+            )}
+          </div>
+
+          <hr className="my-5" />
+
+          <h4 className="m-0 mb-3 text-red-500">Danger Zone</h4>
+
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[10px]">
+            <p className="muted m-0 mb-3">
               Permanently delete all your data including profiles, check-ins, and progress history.
               This action cannot be undone.
             </p>
-            <button className="btn btn-danger" onClick={clearAllData}>
-              🗑️ Delete All Data
+            <button className="btn bg-red-600 border-red-600 text-white hover:bg-red-700" onClick={clearAllData}>
+              Delete All Data
             </button>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .settings-tabs {
-          display: flex;
-          gap: 4px;
-          padding: 4px;
-          background: #1a1a1d;
-          border-radius: 10px;
-        }
-
-        .settings-tabs .tab {
-          flex: 1;
-          padding: 10px 12px;
-          border: none;
-          border-radius: 8px;
-          background: transparent;
-          color: #9ca3af;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.15s ease;
-        }
-
-        .settings-tabs .tab:hover {
-          background: #222226;
-          color: #f3f4f6;
-        }
-
-        .settings-tabs .tab.active {
-          background: #2a2a2d;
-          color: #f3f4f6;
-        }
-
-        .setting-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 0;
-          border-bottom: 1px solid #2a2a2d;
-        }
-
-        .setting-item:last-of-type {
-          border-bottom: none;
-        }
-
-        .setting-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .setting-label {
-          font-size: 15px;
-          font-weight: 500;
-        }
-
-        .setting-description {
-          font-size: 12px;
-          color: #9ca3af;
-        }
-
-        .setting-select {
-          padding: 8px 12px;
-          border: 1px solid #3a3a3d;
-          border-radius: 8px;
-          background: #1a1a1d;
-          color: #f3f4f6;
-          font-size: 14px;
-        }
-
-        .toggle {
-          position: relative;
-          display: inline-block;
-          width: 48px;
-          height: 26px;
-        }
-
-        .toggle input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .toggle-slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: #3a3a3d;
-          transition: 0.3s;
-          border-radius: 26px;
-        }
-
-        .toggle-slider:before {
-          position: absolute;
-          content: "";
-          height: 20px;
-          width: 20px;
-          left: 3px;
-          bottom: 3px;
-          background-color: #f3f4f6;
-          transition: 0.3s;
-          border-radius: 50%;
-        }
-
-        .toggle input:checked + .toggle-slider {
-          background-color: #4f46e5;
-        }
-
-        .toggle input:checked + .toggle-slider:before {
-          transform: translateX(22px);
-        }
-
-        .api-key-input {
-          display: flex;
-          gap: 8px;
-        }
-
-        .input-field {
-          flex: 1;
-          padding: 10px 12px;
-          border: 1px solid #3a3a3d;
-          border-radius: 8px;
-          background: #1a1a1d;
-          color: #f3f4f6;
-          font-size: 14px;
-        }
-
-        .btn-small {
-          padding: 8px 12px;
-          font-size: 13px;
-        }
-
-        .api-key-actions {
-          display: flex;
-          gap: 8px;
-          margin-top: 16px;
-        }
-
-        .connection-status {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px;
-          border-radius: 8px;
-          margin-top: 12px;
-          font-size: 14px;
-        }
-
-        .connection-status.success {
-          background: rgba(34, 197, 94, 0.15);
-          color: #22c55e;
-        }
-
-        .connection-status.error {
-          background: rgba(239, 68, 68, 0.15);
-          color: #ef4444;
-        }
-
-        .status-icon {
-          font-size: 18px;
-        }
-
-        .ai-features-enabled {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px;
-          background: rgba(99, 102, 241, 0.15);
-          border-radius: 8px;
-          margin-top: 12px;
-          color: #a5b4fc;
-          font-size: 14px;
-        }
-
-        .enabled-icon {
-          font-size: 18px;
-        }
-
-        .feature-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-
-        .feature-list li {
-          display: flex;
-          gap: 12px;
-          padding: 12px 0;
-          border-bottom: 1px solid #2a2a2d;
-        }
-
-        .feature-list li:last-child {
-          border-bottom: none;
-        }
-
-        .feature-icon {
-          font-size: 24px;
-        }
-
-        .feature-list strong {
-          display: block;
-          font-size: 14px;
-          margin-bottom: 2px;
-        }
-
-        .feature-list p {
-          margin: 0;
-          font-size: 12px;
-          color: #9ca3af;
-        }
-
-        .cost-estimate {
-          padding: 12px;
-          background: #1a1a1d;
-          border-radius: 8px;
-          margin-top: 16px;
-        }
-
-        .cost-estimate strong {
-          display: block;
-          font-size: 13px;
-          margin-bottom: 4px;
-        }
-
-        .cost-estimate p {
-          margin: 0;
-          font-size: 12px;
-          color: #9ca3af;
-        }
-
-        .data-actions {
-          padding: 16px;
-          background: #1a1a1d;
-          border-radius: 10px;
-        }
-
-        .danger-zone {
-          padding: 16px;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 10px;
-        }
-
-        .danger-zone p {
-          margin: 0 0 12px 0;
-        }
-
-        .btn-danger {
-          background: #dc2626;
-          border-color: #dc2626;
-          color: #fff;
-        }
-
-        .btn-danger:hover {
-          background: #b91c1c;
-        }
-      `}</style>
     </main>
   );
 }

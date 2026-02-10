@@ -12,7 +12,6 @@ interface KneeDiagramProps {
 type ZoneDefinition = {
   id: KneePainLocation;
   label: string;
-  // SVG path or circle coordinates
   cx?: number;
   cy?: number;
   r?: number;
@@ -55,25 +54,13 @@ interface ViewProps {
 
 function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, setActiveTooltip }: ViewProps) {
   return (
-    <div style={{ flex: 1, minWidth: 120 }}>
-      <div style={{
-        fontSize: 11,
-        color: "#9ca3af",
-        textAlign: "center",
-        marginBottom: 6,
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
-      }}>
+    <div className="flex-1 min-w-[120px]">
+      <div className="text-[11px] text-muted text-center mb-1.5 uppercase tracking-wide">
         {title}
       </div>
       <svg
         viewBox="0 0 120 160"
-        style={{
-          width: "100%",
-          maxWidth: 140,
-          display: "block",
-          margin: "0 auto",
-        }}
+        className="w-full max-w-[140px] block mx-auto"
       >
         {/* Knee outline */}
         <ellipse
@@ -100,16 +87,12 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                 fill={isSelected ? "#312e81" : isHovered ? "#222226" : "#0b0b0c"}
                 stroke={isSelected ? "#6366f1" : isHovered ? "#5a5a5d" : "#3a3a3d"}
                 strokeWidth={isSelected ? 2 : 1.5}
-                style={{
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
+                className="cursor-pointer transition-all duration-150 ease-in-out"
                 onClick={() => onToggle(zone.id)}
                 onMouseEnter={() => setActiveTooltip(zone.id)}
                 onMouseLeave={() => setActiveTooltip(null)}
                 onTouchStart={() => setActiveTooltip(zone.id)}
               />
-              {/* Small label inside if selected */}
               {isSelected && (
                 <text
                   x={zone.cx}
@@ -119,7 +102,7 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                   fill="#c7d2fe"
                   fontSize="8"
                   fontWeight="600"
-                  style={{ pointerEvents: "none" }}
+                  className="pointer-events-none"
                 >
                   ✓
                 </text>
@@ -130,14 +113,7 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
       </svg>
 
       {/* Zone labels below diagram */}
-      <div style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 4,
-        justifyContent: "center",
-        marginTop: 8,
-        minHeight: 50,
-      }}>
+      <div className="flex flex-wrap gap-1 justify-center mt-2 min-h-[50px]">
         {zones.map((zone) => {
           const isSelected = selectedLocations.includes(zone.id);
           return (
@@ -146,16 +122,11 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
               onClick={() => onToggle(zone.id)}
               onMouseEnter={() => setActiveTooltip(zone.id)}
               onMouseLeave={() => setActiveTooltip(null)}
-              style={{
-                fontSize: 10,
-                padding: "3px 6px",
-                borderRadius: 4,
-                border: `1px solid ${isSelected ? "#4f46e5" : "#3a3a3d"}`,
-                background: isSelected ? "#312e81" : "transparent",
-                color: isSelected ? "#c7d2fe" : "#9ca3af",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
+              className={`text-[10px] px-1.5 py-0.5 rounded cursor-pointer transition-all duration-150 ease-in-out border ${
+                isSelected
+                  ? "border-indigo-600 bg-indigo-950 text-indigo-200"
+                  : "border-surface-border-hover bg-transparent text-muted"
+              }`}
             >
               {zone.label}
             </button>
@@ -173,28 +144,16 @@ export function KneeDiagram({ selectedLocations, onToggleLocation }: KneeDiagram
     <div>
       {/* Tooltip display */}
       {activeTooltip && (
-        <div style={{
-          background: "#1a1a1d",
-          border: "1px solid #3a3a3d",
-          borderRadius: 8,
-          padding: "8px 12px",
-          marginBottom: 12,
-          fontSize: 13,
-          textAlign: "center",
-        }}>
-          <span style={{ fontWeight: 500 }}>{KNEE_PAIN_LOCATION_LABELS[activeTooltip]}</span>
+        <div className="bg-surface-raised border border-surface-border-hover rounded-lg px-3 py-2 mb-3 text-[13px] text-center">
+          <span className="font-medium">{KNEE_PAIN_LOCATION_LABELS[activeTooltip]}</span>
           {selectedLocations.includes(activeTooltip) && (
-            <span style={{ color: "#6366f1", marginLeft: 8 }}>✓ Selected</span>
+            <span className="text-indigo-500 ml-2">✓ Selected</span>
           )}
         </div>
       )}
 
       {/* Three views side by side */}
-      <div style={{
-        display: "flex",
-        gap: 8,
-        justifyContent: "center",
-      }}>
+      <div className="flex gap-2 justify-center">
         <KneeView
           title="Front"
           zones={FRONT_VIEW_ZONES}
@@ -223,36 +182,19 @@ export function KneeDiagram({ selectedLocations, onToggleLocation }: KneeDiagram
 
       {/* Selection summary */}
       {selectedLocations.length > 0 && (
-        <div style={{
-          marginTop: 16,
-          padding: 10,
-          background: "#1a1a1d",
-          borderRadius: 8,
-          border: "1px solid #2a2a2d",
-        }}>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6, textTransform: "uppercase" }}>
+        <div className="mt-4 p-2.5 bg-surface-raised rounded-lg border border-surface-border">
+          <div className="text-[11px] text-muted mb-1.5 uppercase">
             Selected ({selectedLocations.length})
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div className="flex flex-wrap gap-1.5">
             {selectedLocations.map(loc => (
               <span
                 key={loc}
                 onClick={() => onToggleLocation(loc)}
-                style={{
-                  fontSize: 12,
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                  background: "#312e81",
-                  border: "1px solid #4f46e5",
-                  color: "#c7d2fe",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
+                className="text-xs px-2 py-1 rounded-md bg-indigo-950 border border-indigo-600 text-indigo-200 cursor-pointer flex items-center gap-1"
               >
                 {KNEE_PAIN_LOCATION_LABELS[loc].split(" (")[0]}
-                <span style={{ opacity: 0.7 }}>×</span>
+                <span className="opacity-70">×</span>
               </span>
             ))}
           </div>

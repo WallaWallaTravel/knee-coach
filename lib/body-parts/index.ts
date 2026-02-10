@@ -12,6 +12,19 @@ export * from "./shoulder";
 export * from "./foot";
 
 import { BodyPart, Mode, BaseCoachState } from "./types";
+import { OutcomeData } from "../tracking/outcomes";
+import { analyzeSessionTrends, analyzeCheckInTrends } from "../tracking/analytics";
+import {
+  CONFIDENCE_LOW,
+  CONFIDENCE_HIGH,
+  DISCOMFORT_HIGH,
+  DISCOMFORT_LOW,
+  PAIN_TRENDING_THRESHOLD,
+  REGRESSIONS_THRESHOLD,
+  PAIN_STOP_TRAINING,
+  PAIN_STOP_GAME,
+  PAIN_REGRESS,
+} from "../coach/thresholds";
 import { 
   KneeReadiness, 
   KneeSensation, 
@@ -73,47 +86,69 @@ export function hasWarningSensations(bodyPart: BodyPart, sensations: string[]): 
 // Generic mode decision logic
 export function decideMode(
   bodyPart: BodyPart,
-  readiness: AnyReadiness
+  readiness: AnyReadiness,
+  history?: OutcomeData
 ): { mode: Mode; reasoning: string } {
   const { confidence, restingDiscomfort, activityGoal, sensations } = readiness;
-  
+
+  // Analyze historical trends if available
+  const sessionTrends = history ? analyzeSessionTrends(history) : null;
+  const checkInTrends = history ? analyzeCheckInTrends(history) : null;
+
   // RESET triggers - safety first (shared across all body parts)
-  if (confidence < 4) {
+  if (confidence < CONFIDENCE_LOW) {
     return { mode: "RESET", reasoning: "Low confidence. Focus on restoring trust." };
   }
-  if (restingDiscomfort > 5) {
+  if (restingDiscomfort > DISCOMFORT_HIGH) {
     return { mode: "RESET", reasoning: "Significant resting discomfort. Let's calm things down." };
   }
   if (hasDangerousSensations(bodyPart, sensations)) {
     return { mode: "RESET", reasoning: "Concerning sensations reported. Taking it easy today." };
   }
-  
+
+  // History-based RESET triggers
+  if (checkInTrends?.progressiveWorsening) {
+    return { mode: "RESET", reasoning: "Pain has been increasing over the last 3 days. Taking a step back to recover." };
+  }
+  if (sessionTrends && sessionTrends.recentRegressions >= REGRESSIONS_THRESHOLD && sessionTrends.totalSessions >= 3) {
+    return { mode: "RESET", reasoning: "Multiple recent sessions had high pain. Let's ease off and rebuild." };
+  }
+  if (sessionTrends?.painTrendingUp && sessionTrends.recentAvgPain > PAIN_TRENDING_THRESHOLD) {
+    return { mode: "RESET", reasoning: "Pain is trending upward across recent sessions. Recovery day." };
+  }
+
   // GAME triggers - ready to perform
   if (activityGoal === "game") {
-    if (confidence >= 7 && !hasWarningSensations(bodyPart, sensations) && restingDiscomfort <= 2) {
+    if (confidence >= CONFIDENCE_HIGH && !hasWarningSensations(bodyPart, sensations) && restingDiscomfort <= DISCOMFORT_LOW) {
       return { mode: "GAME", reasoning: "Game day prep. Quick activation, no deep loading." };
     }
     return { mode: "TRAINING", reasoning: "Not quite ready for game intensity. Smart training instead." };
   }
-  
+
   // REST goal
   if (activityGoal === "rest") {
     return { mode: "RESET", reasoning: "Rest day selected. Light movement to maintain mobility." };
   }
-  
+
   // TRAINING (default) - build capacity
-  if (confidence >= 7 && !hasWarningSensations(bodyPart, sensations) && restingDiscomfort <= 2) {
-    return { mode: "TRAINING", reasoning: "Feeling solid. Full training protocol." };
+  if (confidence >= CONFIDENCE_HIGH && !hasWarningSensations(bodyPart, sensations) && restingDiscomfort <= DISCOMFORT_LOW) {
+    // Add trend-aware reasoning
+    const extraContext = sessionTrends?.recentDifficultyTrend === "too_easy"
+      ? " Recent sessions felt easy -- keep pushing."
+      : sessionTrends?.recentDifficultyTrend === "too_hard"
+        ? " Last sessions were tough -- listen to your body today."
+        : "";
+    return { mode: "TRAINING", reasoning: `Feeling solid. Full training protocol.${extraContext}` };
   }
-  
+
   if (confidence >= 5 && !hasWarningSensations(bodyPart, sensations)) {
     return { mode: "TRAINING", reasoning: "Moderate confidence. Training with attention to feedback." };
   }
-  
+
   if (confidence >= 5 && hasWarningSensations(bodyPart, sensations)) {
     return { mode: "TRAINING", reasoning: "Some sensations to monitor. Modified training." };
   }
-  
+
   return { mode: "RESET", reasoning: "Taking it easy today. Build the foundation." };
 }
 
@@ -136,16 +171,17 @@ export function getDefaultPlan(bodyPart: BodyPart, mode: Mode): string[] {
 // Initialize coach state for any body part
 export function initCoachState(
   bodyPart: BodyPart,
-  readiness: AnyReadiness
+  readiness: AnyReadiness,
+  history?: OutcomeData
 ): BaseCoachState {
-  const { mode, reasoning } = decideMode(bodyPart, readiness);
+  const { mode, reasoning } = decideMode(bodyPart, readiness, history);
   const plan = getDefaultPlan(bodyPart, mode);
-  
+
   return {
     mode,
     plan,
-    painStop: mode === "GAME" ? 4 : 5,
-    painRegress: 3,
+    painStop: mode === "GAME" ? PAIN_STOP_GAME : PAIN_STOP_TRAINING,
+    painRegress: PAIN_REGRESS,
     reasoning,
   };
 }

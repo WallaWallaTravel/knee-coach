@@ -3,11 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BodyPart, BODY_PART_INFO } from "@/lib/body-parts";
-import { 
-  getExercisesByBodyPart, 
+import { safeGet, safeSet, safeRemove } from "@/lib/storage/safe-storage";
+import {
+  getExercisesByBodyPart,
   getExercisesForMode,
-  Exercise 
+  getExercise,
+  Exercise
 } from "@/lib/exercises";
+import {
+  getOrCreateOutcomeData,
+  addSession,
+  saveOutcomeData,
+  type ExerciseSession,
+  type Milestone,
+  type OutcomeData,
+} from "@/lib/tracking/outcomes";
+import {
+  getAdaptedDosageLevel,
+  selectDosage,
+} from "@/lib/tracking/analytics";
 
 interface SessionState {
   mode: "RESET" | "TRAINING" | "GAME";
@@ -31,49 +45,45 @@ interface SessionPageProps {
 export function SessionPageComponent({ bodyPart }: SessionPageProps) {
   const [state, setState] = useState<SessionState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [newMilestones, setNewMilestones] = useState<Milestone[]>([]);
+  const [sessionSaved, setSessionSaved] = useState(false);
+  const [historyData, setHistoryData] = useState<OutcomeData | null>(null);
   const info = BODY_PART_INFO[bodyPart];
 
   // Load session state
   useEffect(() => {
     const key = `bodyCoach.${bodyPart}.session`;
-    const raw = localStorage.getItem(key);
-    
-    if (raw) {
-      try {
-        setState(JSON.parse(raw));
-      } catch (e) {
-        console.error("Failed to parse session state");
-      }
+    const saved = safeGet<SessionState | null>(key, null);
+
+    if (saved) {
+      setState(saved);
     } else {
       // No session - check for coachState to create one
-      const coachStateKey = `bodyCoach.${bodyPart}.coachState`;
-      const coachStateRaw = localStorage.getItem(coachStateKey);
-      
-      if (coachStateRaw) {
-        try {
-          const coachState = JSON.parse(coachStateRaw);
-          const mode = coachState.mode || "TRAINING";
-          
-          // Get exercises for this mode
-          const exercises = getExercisesForMode(bodyPart, mode);
-          const exerciseIds = exercises.slice(0, 6).map(e => e.id); // Limit to 6 exercises
-          
-          const newState: SessionState = {
-            mode,
-            exercises: exerciseIds,
-            currentIndex: 0,
-            feedback: {},
-            startedAt: new Date().toISOString(),
-          };
-          
-          setState(newState);
-          localStorage.setItem(key, JSON.stringify(newState));
-        } catch (e) {
-          console.error("Failed to create session from coach state");
-        }
+      const coachState = safeGet<{ mode?: string } | null>(`bodyCoach.${bodyPart}.coachState`, null);
+
+      if (coachState) {
+        const mode = (coachState.mode || "TRAINING") as "RESET" | "TRAINING" | "GAME";
+
+        // Get exercises for this mode
+        const exercises = getExercisesForMode(bodyPart, mode);
+        const exerciseIds = exercises.slice(0, 6).map(e => e.id); // Limit to 6 exercises
+
+        const newState: SessionState = {
+          mode,
+          exercises: exerciseIds,
+          currentIndex: 0,
+          feedback: {},
+          startedAt: new Date().toISOString(),
+        };
+
+        setState(newState);
+        safeSet(key, newState);
       }
     }
-    
+
+    // Load historical data for dosage adaptation
+    setHistoryData(getOrCreateOutcomeData(bodyPart));
+
     setLoading(false);
   }, [bodyPart]);
 
@@ -89,44 +99,58 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
     return state.feedback[currentExercise.id] || { painDuring: 0, feltStable: true, difficulty: "just_right" as const, completed: false };
   }, [state, currentExercise]);
 
+  // Adapted dosage based on historical feedback
+  const adaptedDosage = useMemo(() => {
+    if (!currentExercise) return null;
+    const level = historyData
+      ? getAdaptedDosageLevel(currentExercise.id, historyData)
+      : "default";
+    return selectDosage(
+      currentExercise.defaultDosage,
+      currentExercise.minDosage,
+      currentExercise.maxDosage,
+      level
+    );
+  }, [currentExercise, historyData]);
+
   // Save state helper
   const saveState = (newState: SessionState) => {
     setState(newState);
-    localStorage.setItem(`bodyCoach.${bodyPart}.session`, JSON.stringify(newState));
+    safeSet(`bodyCoach.${bodyPart}.session`, newState);
   };
 
   // Update feedback for current exercise
   const updateFeedback = (partial: Partial<ExerciseFeedback>) => {
     if (!state || !currentExercise) return;
-    
+
     const newFeedback = {
       ...state.feedback,
       [currentExercise.id]: { ...currentFeedback, ...partial }
     };
-    
+
     saveState({ ...state, feedback: newFeedback });
   };
 
   // Complete current exercise and move to next
   const completeExercise = () => {
     if (!state || !currentExercise) return;
-    
+
     // Mark as completed
     const newFeedback = {
       ...state.feedback,
       [currentExercise.id]: { ...currentFeedback, completed: true }
     };
-    
+
     // Check if pain is high - might need to regress
     if (currentFeedback.painDuring >= 6) {
       // High pain - consider stopping or regressing
       const shouldRegress = currentFeedback.painDuring >= 8 || !currentFeedback.feltStable;
-      
+
       if (shouldRegress && state.mode !== "RESET") {
         // Regress to RESET mode
         const resetExercises = getExercisesForMode(bodyPart, "RESET");
         const resetIds = resetExercises.slice(0, 4).map(e => e.id);
-        
+
         saveState({
           ...state,
           mode: "RESET",
@@ -137,7 +161,7 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
         return;
       }
     }
-    
+
     // Move to next exercise
     saveState({
       ...state,
@@ -155,16 +179,113 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
     });
   };
 
-  // End session
+  // Determine if session is complete (all exercises done)
+  const isSessionComplete = !!state && state.currentIndex >= state.exercises.length;
+
+  // Save session outcome data when session completes
+  useEffect(() => {
+    if (!isSessionComplete || sessionSaved || !state) return;
+
+    const exercisesCompleted = Object.entries(state.feedback)
+      .filter(([, fb]) => fb.completed)
+      .map(([exerciseId, fb]) => {
+        const exercise = getExercise(exerciseId);
+        const dosage = exercise?.defaultDosage;
+        return {
+          exerciseId,
+          sets: dosage?.sets ?? 0,
+          reps: dosage?.type === "reps" ? dosage.value : undefined,
+          duration: dosage?.type === "time" ? dosage.value : undefined,
+          difficulty: fb.difficulty,
+          painDuring: fb.painDuring,
+        };
+      });
+
+    const allFeedback = Object.values(state.feedback).filter(f => f.completed);
+    const avgDifficulty = allFeedback.length > 0
+      ? (allFeedback.filter(f => f.difficulty === "too_hard").length > allFeedback.length / 2
+        ? "too_hard" as const
+        : allFeedback.filter(f => f.difficulty === "too_easy").length > allFeedback.length / 2
+          ? "too_easy" as const
+          : "just_right" as const)
+      : "just_right" as const;
+
+    const startTime = new Date(state.startedAt).getTime();
+    const durationMinutes = Math.round((Date.now() - startTime) / 60000);
+
+    const sessionData: Omit<ExerciseSession, "id" | "timestamp"> = {
+      date: new Date().toISOString(),
+      bodyPart,
+      exercisesCompleted,
+      totalDuration: durationMinutes,
+      overallDifficulty: avgDifficulty,
+    };
+
+    const outcomeData = getOrCreateOutcomeData(bodyPart);
+    const previousMilestoneCount = outcomeData.milestones.length;
+    const updated = addSession(outcomeData, sessionData);
+    saveOutcomeData(updated);
+
+    if (updated.milestones.length > previousMilestoneCount) {
+      setNewMilestones(updated.milestones.slice(previousMilestoneCount));
+    }
+
+    setSessionSaved(true);
+  }, [isSessionComplete, sessionSaved, state, bodyPart]);
+
+  // Clean up session from localStorage (called when user clicks Done)
   const endSession = () => {
-    localStorage.removeItem(`bodyCoach.${bodyPart}.session`);
-    // Could save to outcomes here
+    // Save outcomes if not already saved (e.g. ending early)
+    if (state && !sessionSaved) {
+      const exercisesCompleted = Object.entries(state.feedback)
+        .filter(([, fb]) => fb.completed)
+        .map(([exerciseId, fb]) => {
+          const exercise = getExercise(exerciseId);
+          const dosage = exercise?.defaultDosage;
+          return {
+            exerciseId,
+            sets: dosage?.sets ?? 0,
+            reps: dosage?.type === "reps" ? dosage.value : undefined,
+            duration: dosage?.type === "time" ? dosage.value : undefined,
+            difficulty: fb.difficulty,
+            painDuring: fb.painDuring,
+          };
+        });
+
+      if (exercisesCompleted.length > 0) {
+        const allFeedback = Object.values(state.feedback).filter(f => f.completed);
+        const avgDifficulty = allFeedback.length > 0
+          ? (allFeedback.filter(f => f.difficulty === "too_hard").length > allFeedback.length / 2
+            ? "too_hard" as const
+            : allFeedback.filter(f => f.difficulty === "too_easy").length > allFeedback.length / 2
+              ? "too_easy" as const
+              : "just_right" as const)
+          : "just_right" as const;
+
+        const startTime = new Date(state.startedAt).getTime();
+        const durationMinutes = Math.round((Date.now() - startTime) / 60000);
+
+        const sessionData: Omit<ExerciseSession, "id" | "timestamp"> = {
+          date: new Date().toISOString(),
+          bodyPart,
+          exercisesCompleted,
+          totalDuration: durationMinutes,
+          overallDifficulty: avgDifficulty,
+        };
+
+        const outcomeData = getOrCreateOutcomeData(bodyPart);
+        const updated = addSession(outcomeData, sessionData);
+        saveOutcomeData(updated);
+      }
+    }
+
+    safeRemove(`bodyCoach.${bodyPart}.session`);
   };
 
   // Loading state
   if (loading) {
     return (
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
+      <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
         <p>Loading session...</p>
       </main>
     );
@@ -173,18 +294,18 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
   // No session state
   if (!state) {
     return (
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ margin: 0 }}>{info.icon} Session</h1>
+      <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="m-0">{info.icon} Session</h1>
           <Link href={`/${bodyPart}`} className="btn">← Back</Link>
         </div>
-        
+
         <div className="card">
-          <h3 style={{ margin: "0 0 12px 0" }}>No Active Session</h3>
+          <h3 className="m-0 mb-3">No Active Session</h3>
           <p className="muted">
             Complete your daily check-in first to start a session.
           </p>
-          <Link href={`/${bodyPart}`} className="btn btn-primary" style={{ display: "inline-block", marginTop: 12 }}>
+          <Link href={`/${bodyPart}`} className="btn btn-primary inline-block mt-3">
             Go to Check-in
           </Link>
         </div>
@@ -193,154 +314,168 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
   }
 
   // Session complete
-  if (!currentExercise) {
+  if (isSessionComplete) {
     const completedCount = Object.values(state.feedback).filter(f => f.completed).length;
     const avgPain = Object.values(state.feedback).reduce((sum, f) => sum + (f.painDuring || 0), 0) / Math.max(completedCount, 1);
-    
+    const stableCount = Object.values(state.feedback).filter(f => f.completed && f.feltStable).length;
+    const stabilityRate = completedCount > 0 ? Math.round((stableCount / completedCount) * 100) : 0;
+
     return (
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ margin: 0 }}>{info.icon} Session Complete!</h1>
+      <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="m-0">{info.icon} Session Complete!</h1>
         </div>
-        
-        <div className="card" style={{ 
+
+        <div className="card border-green-500" style={{
           background: "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, #121214 100%)",
-          borderColor: "#22c55e"
         }}>
-          <div style={{ fontSize: 48, textAlign: "center", marginBottom: 12 }}>🎉</div>
-          <h2 style={{ margin: "0 0 16px 0", textAlign: "center" }}>Great Work!</h2>
-          
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div className="card" style={{ textAlign: "center", padding: 12 }}>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>{completedCount}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Exercises</div>
+          <div className="text-5xl text-center mb-3">🎉</div>
+          <h2 className="m-0 mb-4 text-center">Great Work!</h2>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="card text-center p-3">
+              <div className="text-2xl font-bold">{completedCount}</div>
+              <div className="muted text-xs">Exercises</div>
             </div>
-            <div className="card" style={{ textAlign: "center", padding: 12 }}>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>{avgPain.toFixed(1)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Avg Pain</div>
+            <div className="card text-center p-3">
+              <div className="text-2xl font-bold">{avgPain.toFixed(1)}</div>
+              <div className="muted text-xs">Avg Pain</div>
+            </div>
+            <div className="card text-center p-3">
+              <div className="text-2xl font-bold">{stabilityRate}%</div>
+              <div className="muted text-xs">Stability</div>
             </div>
           </div>
-          
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link 
-              href={`/${bodyPart}`} 
-              className="btn btn-primary" 
-              style={{ flex: 1, textAlign: "center" }}
+
+          {/* New milestone celebrations */}
+          {newMilestones.length > 0 && (
+            <div className="mb-4">
+              {newMilestones.map((m) => (
+                <div key={m.id} className="p-3 bg-indigo-500/15 rounded-lg border border-indigo-500/30 mb-2 text-center">
+                  <div className="text-xl mb-1">🏆</div>
+                  <div className="font-bold text-sm">{m.title}</div>
+                  <div className="muted text-xs">{m.description}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Link
+              href={`/${bodyPart}`}
+              className="btn btn-primary flex-1 text-center"
               onClick={endSession}
             >
               Done
             </Link>
           </div>
         </div>
-        
-        <p className="muted" style={{ marginTop: 16, fontSize: 12, textAlign: "center" }}>
-          Your session data has been saved. Check back tomorrow for your next check-in!
+
+        <p className="muted mt-4 text-xs text-center">
+          Session saved to your progress history. Check back tomorrow!
         </p>
       </main>
     );
   }
 
   // Active session - show current exercise
+  // currentExercise is guaranteed non-null here since isSessionComplete was false
+  if (!currentExercise) return null;
   const progress = ((state.currentIndex) / state.exercises.length) * 100;
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16, fontFamily: "system-ui" }}>
+    <main className="max-w-[560px] mx-auto p-4 font-[system-ui]">
       {/* Header */}
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontSize: 20 }}>{info.icon} {info.name} Session</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="m-0 text-xl">{info.icon} {info.name} Session</h1>
         <span className={`mode-badge ${state.mode.toLowerCase()}`}>{state.mode}</span>
       </div>
-      
+
       {/* Progress bar */}
-      <div style={{ marginBottom: 16 }}>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+      <div className="mb-4">
+        <div className="muted text-xs mb-1">
           Exercise {state.currentIndex + 1} of {state.exercises.length}
         </div>
-        <div style={{ height: 4, background: "#2a2a2d", borderRadius: 2, overflow: "hidden" }}>
-          <div style={{ 
-            height: "100%", 
-            width: `${progress}%`, 
-            background: info.color,
-            transition: "width 0.3s ease"
-          }} />
+        <div className="h-1 bg-surface-border rounded-sm overflow-hidden">
+          <div
+            className="h-full transition-[width] duration-300 ease-in-out rounded-sm"
+            style={{ width: `${progress}%`, background: info.color }}
+          />
         </div>
       </div>
 
       {/* Exercise Card */}
       <div className="card">
-        <h2 style={{ margin: "0 0 4px 0" }}>{currentExercise.title}</h2>
-        <p className="muted" style={{ margin: "0 0 16px 0", fontSize: 14 }}>
+        <h2 className="m-0 mb-1">{currentExercise.title}</h2>
+        <p className="muted m-0 mb-4 text-sm">
           {currentExercise.intent}
         </p>
 
         {/* Description */}
-        <div style={{ 
-          padding: 12, 
-          background: "#1a1a1d", 
-          borderRadius: 8, 
-          marginBottom: 16,
-          fontSize: 14,
-          lineHeight: 1.5
-        }}>
+        <div className="p-3 bg-surface-raised rounded-lg mb-4 text-sm leading-relaxed">
           {currentExercise.description}
         </div>
 
         {/* Cues */}
-        <div style={{ marginBottom: 16 }}>
+        <div className="mb-4">
           <div className="section-header">Cues</div>
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
+          <ul className="m-0 pl-5">
             {currentExercise.cues.map((cue, i) => (
-              <li key={i} style={{ marginBottom: 4 }}>{cue}</li>
+              <li key={i} className="mb-1">{cue}</li>
             ))}
           </ul>
         </div>
 
-        {/* Dosage */}
-        <div style={{ 
-          display: "flex", 
-          gap: 16, 
-          padding: 12, 
-          background: "#1a1a1d", 
-          borderRadius: 8,
-          marginBottom: 16 
-        }}>
-          <div>
-            <div className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>Sets</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{currentExercise.defaultDosage.sets}</div>
-          </div>
-          <div>
-            <div className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>
-              {currentExercise.defaultDosage.type === "reps" ? "Reps" : "Seconds"}
+        {/* Dosage (adapted based on history) */}
+        {adaptedDosage && (
+          <div className="p-3 bg-surface-raised rounded-lg mb-4">
+            {adaptedDosage.label !== "Standard" && (
+              <div className={`text-[11px] uppercase mb-2 font-semibold ${
+                adaptedDosage.label === "Advanced" ? "text-green-500" : "text-amber-500"
+              }`}>
+                {adaptedDosage.label === "Advanced" ? "Progressed dosage" : "Eased dosage"} -- based on your recent sessions
+              </div>
+            )}
+            <div className="flex gap-4">
+              <div>
+                <div className="muted text-[11px] uppercase">Sets</div>
+                <div className="text-xl font-bold">{adaptedDosage.dosage.sets}</div>
+              </div>
+              <div>
+                <div className="muted text-[11px] uppercase">
+                  {adaptedDosage.dosage.type === "reps" ? "Reps" : "Seconds"}
+                </div>
+                <div className="text-xl font-bold">{adaptedDosage.dosage.value}</div>
+              </div>
+              {adaptedDosage.dosage.holdSeconds && (
+                <div>
+                  <div className="muted text-[11px] uppercase">Hold</div>
+                  <div className="text-xl font-bold">{adaptedDosage.dosage.holdSeconds}s</div>
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{currentExercise.defaultDosage.value}</div>
           </div>
-          {currentExercise.defaultDosage.holdSeconds && (
-            <div>
-              <div className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>Hold</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{currentExercise.defaultDosage.holdSeconds}s</div>
-            </div>
-          )}
-        </div>
+        )}
 
         <hr />
 
         {/* Feedback */}
-        <div style={{ marginTop: 16 }}>
+        <div className="mt-4">
           <label>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <div className="flex justify-between mb-1">
               <span>Pain during exercise</span>
-              <span style={{ fontWeight: 600 }}>{currentFeedback.painDuring}/10</span>
+              <span className="font-semibold">{currentFeedback.painDuring}/10</span>
             </div>
-            <input 
-              type="range" 
-              min={0} 
-              max={10} 
+            <input
+              type="range"
+              min={0}
+              max={10}
               value={currentFeedback.painDuring}
               onChange={(e) => updateFeedback({ painDuring: Number(e.target.value) })}
             />
           </label>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <label className="flex items-center gap-2 mt-3">
             <input
               type="checkbox"
               checked={currentFeedback.feltStable}
@@ -349,14 +484,13 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
             <span>Felt stable throughout</span>
           </label>
 
-          <div style={{ marginTop: 12 }}>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>How did it feel?</div>
-            <div style={{ display: "flex", gap: 8 }}>
+          <div className="mt-3">
+            <div className="muted text-xs mb-1.5">How did it feel?</div>
+            <div className="flex gap-2">
               {(["too_easy", "just_right", "too_hard"] as const).map((diff) => (
                 <button
                   key={diff}
-                  className={`btn ${currentFeedback.difficulty === diff ? "btn-primary" : ""}`}
-                  style={{ flex: 1, fontSize: 12, padding: "8px 4px" }}
+                  className={`btn flex-1 text-xs py-2 px-1 ${currentFeedback.difficulty === diff ? "btn-primary" : ""}`}
                   onClick={() => updateFeedback({ difficulty: diff })}
                 >
                   {diff === "too_easy" ? "Too Easy" : diff === "just_right" ? "Just Right" : "Too Hard"}
@@ -367,36 +501,28 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <button className="btn" onClick={skipExercise} style={{ flex: 1 }}>
+        <div className="flex gap-2 mt-5">
+          <button className="btn flex-1" onClick={skipExercise}>
             Skip
           </button>
-          <button className="btn btn-primary" onClick={completeExercise} style={{ flex: 2 }}>
+          <button className="btn btn-primary flex-[2]" onClick={completeExercise}>
             Complete ✓
           </button>
         </div>
 
         {/* Warning for high pain */}
         {currentFeedback.painDuring >= 6 && (
-          <div style={{ 
-            marginTop: 12, 
-            padding: 10, 
-            background: "rgba(239, 68, 68, 0.15)", 
-            borderRadius: 8,
-            border: "1px solid rgba(239, 68, 68, 0.3)",
-            fontSize: 13
-          }}>
+          <div className="mt-3 p-2.5 bg-red-500/15 rounded-lg border border-red-500/30 text-[13px]">
             ⚠️ High pain reported. Consider stopping or modifying the exercise.
           </div>
         )}
       </div>
 
       {/* Quick exit */}
-      <div style={{ marginTop: 16, textAlign: "center" }}>
-        <Link 
-          href={`/${bodyPart}`} 
-          className="muted" 
-          style={{ fontSize: 13 }}
+      <div className="mt-4 text-center">
+        <Link
+          href={`/${bodyPart}`}
+          className="muted text-[13px]"
           onClick={endSession}
         >
           End session early

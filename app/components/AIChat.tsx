@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { BodyPart } from "@/lib/body-parts/types";
+import { safeGet } from "@/lib/storage/safe-storage";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,13 +24,13 @@ interface AISettings {
   enableAIFeatures: boolean;
 }
 
-export function AIChat({ 
-  bodyPart, 
-  type, 
-  context = {}, 
+export function AIChat({
+  bodyPart,
+  type,
+  context = {},
   initialMessage,
   onClose,
-  onComplete 
+  onComplete
 }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -40,14 +41,9 @@ export function AIChat({
 
   // Load AI settings
   useEffect(() => {
-    const saved = localStorage.getItem("bodyCoach.settings.ai");
-    if (saved) {
-      try {
-        const settings = JSON.parse(saved);
-        setAiSettings(settings);
-      } catch (e) {
-        console.error("Failed to parse AI settings");
-      }
+    const settings = safeGet<AISettings | null>("bodyCoach.settings.ai", null);
+    if (settings) {
+      setAiSettings(settings);
     }
   }, []);
 
@@ -98,7 +94,7 @@ export function AIChat({
       const assistantMessage: Message = { role: "assistant", content: data.content };
       const updatedMessages = [...newMessages, assistantMessage];
       setMessages(updatedMessages);
-      
+
       if (onComplete) {
         onComplete(updatedMessages);
       }
@@ -119,17 +115,21 @@ export function AIChat({
   // Not configured state
   if (!aiSettings?.enableAIFeatures) {
     return (
-      <div className="ai-chat-container">
-        <div className="ai-chat-header">
-          <h3>AI Assistant</h3>
+      <div className="flex flex-col h-[400px] bg-surface-raised border border-surface-border rounded-xl overflow-hidden">
+        <div className="flex justify-between items-center px-4 py-3 bg-surface-raised border-b border-surface-border">
+          <h3 className="m-0 text-base">AI Assistant</h3>
           {onClose && (
-            <button className="close-btn" onClick={onClose}>×</button>
+            <button
+              className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-gray-100"
+              onClick={onClose}
+              aria-label="Close"
+            >×</button>
           )}
         </div>
-        <div className="ai-not-configured">
-          <span className="not-configured-icon">🤖</span>
-          <h4>AI Features Not Configured</h4>
-          <p>Set up your AI provider in Settings to enable smart features.</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <span className="text-5xl opacity-50 mb-3">🤖</span>
+          <h4 className="m-0 mb-2 text-muted">AI Features Not Configured</h4>
+          <p className="m-0 mb-4 text-sm text-muted">Set up your AI provider in Settings to enable smart features.</p>
           <a href="/settings" className="btn btn-primary">
             Go to Settings
           </a>
@@ -138,27 +138,31 @@ export function AIChat({
     );
   }
 
+  const chatTitle = type === "calibration" ? "Smart Calibration" :
+    type === "explain_mode" ? "Mode Explanation" :
+    type === "explain_exercise" ? "Exercise Guide" :
+    type === "analyze_progress" ? "Progress Analysis" :
+    type === "explain_red_flag" ? "Safety Guidance" : "AI Assistant";
+
   return (
-    <div className="ai-chat-container">
-      <div className="ai-chat-header">
-        <h3>
-          {type === "calibration" ? "Smart Calibration" :
-           type === "explain_mode" ? "Mode Explanation" :
-           type === "explain_exercise" ? "Exercise Guide" :
-           type === "analyze_progress" ? "Progress Analysis" :
-           type === "explain_red_flag" ? "Safety Guidance" : "AI Assistant"}
-        </h3>
+    <div className="flex flex-col h-[400px] bg-surface-raised border border-surface-border rounded-xl overflow-hidden">
+      <div className="flex justify-between items-center px-4 py-3 bg-surface-raised border-b border-surface-border">
+        <h3 className="m-0 text-base">{chatTitle}</h3>
         {onClose && (
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button
+            className="w-7 h-7 border-none rounded-md bg-surface-border text-muted text-lg cursor-pointer hover:bg-surface-border-hover hover:text-gray-100"
+            onClick={onClose}
+            aria-label="Close"
+          >×</button>
         )}
       </div>
 
-      <div className="ai-chat-messages">
+      <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 && !loading && (
-          <div className="chat-empty">
-            <span className="chat-empty-icon">💬</span>
-            <p>
-              {type === "calibration" 
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted">
+            <span className="text-3xl mb-2 opacity-50">💬</span>
+            <p className="m-0 text-sm">
+              {type === "calibration"
                 ? "Describe your issue and I'll help you pinpoint exactly what's going on."
                 : type === "explain_mode"
                 ? "I'll explain why you got this mode and what it means for today."
@@ -172,31 +176,35 @@ export function AIChat({
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`chat-message ${msg.role}`}>
-            <div className="message-avatar">
+          <div key={i} className="flex gap-2.5 mb-4">
+            <div className={`w-8 h-8 flex items-center justify-center rounded-lg text-base shrink-0 ${
+              msg.role === "assistant" ? "bg-indigo-950" : "bg-surface-border"
+            }`}>
               {msg.role === "user" ? "👤" : "🤖"}
             </div>
-            <div className="message-content">
+            <div className={`flex-1 px-3.5 py-2.5 rounded-xl text-sm leading-relaxed ${
+              msg.role === "user" ? "bg-surface-border" : "bg-surface-raised"
+            }`}>
               {msg.content.split("\n").map((line, j) => (
-                <p key={j}>{line}</p>
+                <p key={j} className="m-0 mb-2 last:mb-0">{line}</p>
               ))}
             </div>
           </div>
         ))}
 
         {loading && (
-          <div className="chat-message assistant">
-            <div className="message-avatar">🤖</div>
-            <div className="message-content loading">
-              <span className="loading-dot"></span>
-              <span className="loading-dot"></span>
-              <span className="loading-dot"></span>
+          <div className="flex gap-2.5 mb-4">
+            <div className="w-8 h-8 flex items-center justify-center bg-indigo-950 rounded-lg text-base shrink-0">🤖</div>
+            <div className="flex-1 flex gap-1 px-3.5 py-3.5 bg-surface-raised rounded-xl">
+              <span className="ai-loading-dot"></span>
+              <span className="ai-loading-dot"></span>
+              <span className="ai-loading-dot"></span>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="chat-error">
+          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-500/15 rounded-lg text-red-300 text-[13px]">
             <span>⚠️</span> {error}
           </div>
         )}
@@ -204,234 +212,23 @@ export function AIChat({
         <div ref={messagesEndRef} />
       </div>
 
-      <form className="ai-chat-input" onSubmit={handleSubmit}>
+      <form className="flex gap-2 p-3 bg-surface-raised border-t border-surface-border" onSubmit={handleSubmit}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           disabled={loading}
+          className="flex-1 px-3.5 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-gray-100 text-sm focus:outline-none focus:border-indigo-600"
         />
-        <button type="submit" disabled={loading || !input.trim()}>
+        <button
+          type="submit"
+          disabled={loading || !input.trim()}
+          className="px-4 py-2.5 border-none rounded-lg bg-indigo-600 text-white text-sm font-medium cursor-pointer transition-colors duration-150 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           Send
         </button>
       </form>
-
-      <style jsx>{`
-        .ai-chat-container {
-          display: flex;
-          flex-direction: column;
-          height: 400px;
-          background: #121214;
-          border: 1px solid #2a2a2d;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .ai-chat-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 16px;
-          background: #1a1a1d;
-          border-bottom: 1px solid #2a2a2d;
-        }
-
-        .ai-chat-header h3 {
-          margin: 0;
-          font-size: 16px;
-        }
-
-        .close-btn {
-          width: 28px;
-          height: 28px;
-          border: none;
-          border-radius: 6px;
-          background: #2a2a2d;
-          color: #9ca3af;
-          font-size: 18px;
-          cursor: pointer;
-        }
-
-        .close-btn:hover {
-          background: #3a3a3d;
-          color: #f3f4f6;
-        }
-
-        .ai-not-configured {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          text-align: center;
-        }
-
-        .not-configured-icon {
-          font-size: 48px;
-          opacity: 0.5;
-          margin-bottom: 12px;
-        }
-
-        .ai-not-configured h4 {
-          margin: 0 0 8px 0;
-          color: #9ca3af;
-        }
-
-        .ai-not-configured p {
-          margin: 0 0 16px 0;
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        .ai-chat-messages {
-          flex: 1;
-          overflow-y: auto;
-          padding: 16px;
-        }
-
-        .chat-empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          text-align: center;
-          color: #6b7280;
-        }
-
-        .chat-empty-icon {
-          font-size: 32px;
-          margin-bottom: 8px;
-          opacity: 0.5;
-        }
-
-        .chat-empty p {
-          margin: 0;
-          font-size: 14px;
-        }
-
-        .chat-message {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-
-        .message-avatar {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #2a2a2d;
-          border-radius: 8px;
-          font-size: 16px;
-          flex-shrink: 0;
-        }
-
-        .chat-message.assistant .message-avatar {
-          background: #312e81;
-        }
-
-        .message-content {
-          flex: 1;
-          padding: 10px 14px;
-          background: #1a1a1d;
-          border-radius: 12px;
-          font-size: 14px;
-          line-height: 1.5;
-        }
-
-        .chat-message.user .message-content {
-          background: #2a2a2d;
-        }
-
-        .message-content p {
-          margin: 0 0 8px 0;
-        }
-
-        .message-content p:last-child {
-          margin-bottom: 0;
-        }
-
-        .message-content.loading {
-          display: flex;
-          gap: 4px;
-          padding: 14px;
-        }
-
-        .loading-dot {
-          width: 8px;
-          height: 8px;
-          background: #6b7280;
-          border-radius: 50%;
-          animation: bounce 1.4s infinite ease-in-out both;
-        }
-
-        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
-        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes bounce {
-          0%, 80%, 100% { transform: scale(0); }
-          40% { transform: scale(1); }
-        }
-
-        .chat-error {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 14px;
-          background: rgba(239, 68, 68, 0.15);
-          border-radius: 8px;
-          color: #fca5a5;
-          font-size: 13px;
-        }
-
-        .ai-chat-input {
-          display: flex;
-          gap: 8px;
-          padding: 12px;
-          background: #1a1a1d;
-          border-top: 1px solid #2a2a2d;
-        }
-
-        .ai-chat-input input {
-          flex: 1;
-          padding: 10px 14px;
-          border: 1px solid #3a3a3d;
-          border-radius: 8px;
-          background: #121214;
-          color: #f3f4f6;
-          font-size: 14px;
-        }
-
-        .ai-chat-input input:focus {
-          outline: none;
-          border-color: #4f46e5;
-        }
-
-        .ai-chat-input button {
-          padding: 10px 16px;
-          border: none;
-          border-radius: 8px;
-          background: #4f46e5;
-          color: #fff;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.15s ease;
-        }
-
-        .ai-chat-input button:hover:not(:disabled) {
-          background: #4338ca;
-        }
-
-        .ai-chat-input button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      `}</style>
     </div>
   );
 }
@@ -446,49 +243,22 @@ export function AIFloatingButton({ bodyPart, onClick }: AIFloatingButtonProps) {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("bodyCoach.settings.ai");
-    if (saved) {
-      try {
-        const settings = JSON.parse(saved);
-        setEnabled(settings.enableAIFeatures);
-      } catch (e) {
-        // ignore
-      }
+    const settings = safeGet<AISettings | null>("bodyCoach.settings.ai", null);
+    if (settings) {
+      setEnabled(settings.enableAIFeatures);
     }
   }, []);
 
   if (!enabled) return null;
 
   return (
-    <button className="ai-floating-btn" onClick={onClick} title="Ask AI">
+    <button
+      className="fixed bottom-6 right-6 w-14 h-14 border-none rounded-full text-white text-2xl cursor-pointer shadow-lg shadow-indigo-600/40 transition-transform duration-200 hover:scale-110 active:scale-95 z-[100]"
+      style={{ background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)" }}
+      onClick={onClick}
+      title="Ask AI"
+    >
       <span>🤖</span>
-      <style jsx>{`
-        .ai-floating-btn {
-          position: fixed;
-          bottom: 24px;
-          right: 24px;
-          width: 56px;
-          height: 56px;
-          border: none;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-          color: #fff;
-          font-size: 24px;
-          cursor: pointer;
-          box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          z-index: 100;
-        }
-
-        .ai-floating-btn:hover {
-          transform: scale(1.1);
-          box-shadow: 0 6px 24px rgba(79, 70, 229, 0.5);
-        }
-
-        .ai-floating-btn:active {
-          transform: scale(0.95);
-        }
-      `}</style>
     </button>
   );
 }
@@ -505,14 +275,9 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("bodyCoach.settings.ai");
-    if (saved) {
-      try {
-        const settings = JSON.parse(saved);
-        setEnabled(settings.enableAIFeatures);
-      } catch (e) {
-        // ignore
-      }
+    const settings = safeGet<AISettings | null>("bodyCoach.settings.ai", null);
+    if (settings) {
+      setEnabled(settings.enableAIFeatures);
     }
   }, []);
 
@@ -520,38 +285,20 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
 
   return (
     <>
-      <button 
-        className="explain-btn"
+      <button
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-surface-border-hover rounded-md bg-surface-raised text-muted text-xs cursor-pointer transition-all duration-150 hover:bg-[#222226] hover:text-gray-100 hover:border-indigo-600"
         onClick={() => setShowChat(true)}
         title="Explain this exercise"
       >
         <span>💡</span> Explain
-        <style jsx>{`
-          .explain-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 6px 10px;
-            border: 1px solid #3a3a3d;
-            border-radius: 6px;
-            background: #1a1a1d;
-            color: #9ca3af;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-          }
-
-          .explain-btn:hover {
-            background: #222226;
-            color: #f3f4f6;
-            border-color: #4f46e5;
-          }
-        `}</style>
       </button>
 
       {showChat && (
-        <div className="explain-modal-overlay" onClick={() => setShowChat(false)}>
-          <div className="explain-modal" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[1000]"
+          onClick={() => setShowChat(false)}
+        >
+          <div className="w-full max-w-[480px]" onClick={e => e.stopPropagation()}>
             <AIChat
               bodyPart={bodyPart}
               type="explain_exercise"
@@ -560,26 +307,6 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
               onClose={() => setShowChat(false)}
             />
           </div>
-          <style jsx>{`
-            .explain-modal-overlay {
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: rgba(0, 0, 0, 0.8);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              padding: 16px;
-              z-index: 1000;
-            }
-
-            .explain-modal {
-              width: 100%;
-              max-width: 480px;
-            }
-          `}</style>
         </div>
       )}
     </>

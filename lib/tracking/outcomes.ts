@@ -563,17 +563,33 @@ export function generateInsights(data: OutcomeData): ProgressInsight[] {
 
 const STORAGE_KEY_PREFIX = "bodyCoach.outcomes.";
 
-export function saveOutcomeData(data: OutcomeData): void {
+export function saveOutcomeData(data: OutcomeData): boolean {
   const key = `${STORAGE_KEY_PREFIX}${data.bodyPart}`;
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    return true;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "QuotaExceededError") {
+      // Try to free space by pruning old data inline
+      try {
+        const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        data.checkIns = data.checkIns.filter(c => (c.timestamp ?? 0) > cutoff);
+        data.sessions = data.sessions.filter(s => (s.timestamp ?? 0) > cutoff);
+        localStorage.setItem(key, JSON.stringify(data));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
 }
 
 export function loadOutcomeData(bodyPart: BodyPart): OutcomeData | null {
-  const key = `${STORAGE_KEY_PREFIX}${bodyPart}`;
-  const stored = localStorage.getItem(key);
-  if (!stored) return null;
-  
   try {
+    const key = `${STORAGE_KEY_PREFIX}${bodyPart}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
     return JSON.parse(stored) as OutcomeData;
   } catch {
     return null;
