@@ -2,6 +2,8 @@
  * Data export/import for backup and migration.
  */
 
+import { safeSet } from "./safe-storage";
+
 /**
  * Export all bodyCoach data as a JSON string.
  */
@@ -70,14 +72,21 @@ export function importData(json: string): { success: boolean; keysImported: numb
 
     // Write all valid keys
     let imported = 0;
+    const failedKeys: string[] = [];
     for (const [key, value] of Object.entries(parsed.data)) {
-      try {
-        const serialized = typeof value === "string" ? value : JSON.stringify(value);
-        localStorage.setItem(key, serialized);
+      if (safeSet(key, value)) {
         imported++;
-      } catch {
-        // Skip keys that fail to write (e.g., quota exceeded)
+      } else {
+        failedKeys.push(key);
       }
+    }
+
+    if (failedKeys.length > 0) {
+      return {
+        success: imported > 0,
+        keysImported: imported,
+        error: `Failed to import ${failedKeys.length} key(s): ${failedKeys.slice(0, 3).join(", ")}${failedKeys.length > 3 ? "..." : ""}`,
+      };
     }
 
     return { success: true, keysImported: imported };

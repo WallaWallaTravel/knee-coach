@@ -88,10 +88,21 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                 stroke={isSelected ? "#6366f1" : isHovered ? "#5a5a5d" : "#3a3a3d"}
                 strokeWidth={isSelected ? 2 : 1.5}
                 className="cursor-pointer transition-all duration-150 ease-in-out"
+                tabIndex={0}
+                role="button"
+                aria-label={`${zone.label}${isSelected ? " (selected)" : ""}`}
                 onClick={() => onToggle(zone.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onToggle(zone.id);
+                  }
+                }}
                 onMouseEnter={() => setActiveTooltip(zone.id)}
                 onMouseLeave={() => setActiveTooltip(null)}
                 onTouchStart={() => setActiveTooltip(zone.id)}
+                onFocus={() => setActiveTooltip(zone.id)}
+                onBlur={() => setActiveTooltip(null)}
               />
               {isSelected && (
                 <text

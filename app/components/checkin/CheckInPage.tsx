@@ -29,6 +29,7 @@ import { CONFIDENCE_LABELS, DISCOMFORT_LABELS, getConfidenceColor, getDiscomfort
 import { CONFIDENCE_STABILITY } from "@/lib/coach/thresholds";
 import { safeGet, safeSet } from "@/lib/storage/safe-storage";
 import { BODY_PART_CHECK_IN_CONFIG, type AnyCalibrationProfile } from "./body-part-config";
+import type { KneeCalibrationProfile } from "@/lib/body-parts/knee";
 
 interface CheckInPageProps {
   bodyPart: BodyPart;
@@ -126,10 +127,11 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
     };
 
     if (bodyPart === "knee") {
+      const kneeCalibration = calibration as KneeCalibrationProfile | null;
       return {
         ...base,
-        movementRestrictions: (calibration as any)?.movementRestrictions || [],
-        painLocations: (calibration as any)?.painLocations || [],
+        movementRestrictions: kneeCalibration?.movementRestrictions || [],
+        painLocations: kneeCalibration?.painLocations || [],
         recentGivingWay: showGivingWaySection ? recentGivingWay : undefined,
         dailyNotes: dailyNotes || undefined,
       } as AnyReadiness;

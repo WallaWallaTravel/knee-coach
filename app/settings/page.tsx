@@ -212,6 +212,7 @@ export default function SettingsPage() {
               <span className="text-xs text-muted">Choose your preferred color scheme</span>
             </div>
             <select
+              aria-label="Theme preference"
               value={appSettings.theme}
               onChange={(e) => {
                 setAppSettings(prev => ({ ...prev, theme: e.target.value as "dark" | "light" | "system" }));
@@ -232,6 +233,7 @@ export default function SettingsPage() {
             <label className="settings-toggle">
               <input
                 type="checkbox"
+                aria-label="Enable notifications"
                 checked={appSettings.notifications}
                 onChange={(e) => setAppSettings(prev => ({ ...prev, notifications: e.target.checked }))}
               />

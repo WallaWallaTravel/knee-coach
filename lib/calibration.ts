@@ -3,6 +3,8 @@
  * This is collected during onboarding and can be updated over time.
  */
 
+import { safeGet, safeSet } from "./storage/safe-storage";
+
 // Range of motion zones (in degrees of knee flexion)
 // 0° = fully extended, 90° = right angle, 135°+ = deep squat
 export type ROMZone = {
@@ -230,19 +232,13 @@ const CALIBRATION_KEY = "kneeCoach.calibration";
 
 export function saveCalibration(profile: CalibrationProfile): void {
   profile.updatedAt = new Date().toISOString();
-  localStorage.setItem(CALIBRATION_KEY, JSON.stringify(profile));
+  safeSet(CALIBRATION_KEY, profile);
 }
 
 export function loadCalibration(): CalibrationProfile | null {
-  const raw = localStorage.getItem(CALIBRATION_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as CalibrationProfile;
-  } catch {
-    return null;
-  }
+  return safeGet<CalibrationProfile | null>(CALIBRATION_KEY, null);
 }
 
 export function hasCalibration(): boolean {
-  return localStorage.getItem(CALIBRATION_KEY) !== null;
+  return safeGet<CalibrationProfile | null>(CALIBRATION_KEY, null) !== null;
 }

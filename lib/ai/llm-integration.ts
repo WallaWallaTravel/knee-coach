@@ -12,6 +12,7 @@
 import { BodyPart } from "../body-parts/types";
 import { OutcomeData } from "../tracking/outcomes";
 import { RedFlag } from "../safety/red-flags";
+import { safeGet, safeSet } from "../storage/safe-storage";
 
 // ============================================
 // CONFIGURATION
@@ -485,38 +486,31 @@ export interface StoredConversation {
 }
 
 export function saveConversation(conversation: StoredConversation): void {
-  const stored = localStorage.getItem(CONVERSATION_KEY);
-  const conversations: StoredConversation[] = stored ? JSON.parse(stored) : [];
-  
+  const conversations = safeGet<StoredConversation[]>(CONVERSATION_KEY, []);
+
   const existingIndex = conversations.findIndex(c => c.id === conversation.id);
   if (existingIndex >= 0) {
     conversations[existingIndex] = conversation;
   } else {
     conversations.push(conversation);
   }
-  
+
   // Keep only last 20 conversations
   const trimmed = conversations.slice(-20);
-  localStorage.setItem(CONVERSATION_KEY, JSON.stringify(trimmed));
+  safeSet(CONVERSATION_KEY, trimmed);
 }
 
 export function loadConversation(id: string): StoredConversation | null {
-  const stored = localStorage.getItem(CONVERSATION_KEY);
-  if (!stored) return null;
-  
-  const conversations: StoredConversation[] = JSON.parse(stored);
+  const conversations = safeGet<StoredConversation[]>(CONVERSATION_KEY, []);
   return conversations.find(c => c.id === id) || null;
 }
 
 export function getRecentConversations(bodyPart?: BodyPart): StoredConversation[] {
-  const stored = localStorage.getItem(CONVERSATION_KEY);
-  if (!stored) return [];
-  
-  const conversations: StoredConversation[] = JSON.parse(stored);
-  
+  const conversations = safeGet<StoredConversation[]>(CONVERSATION_KEY, []);
+
   if (bodyPart) {
     return conversations.filter(c => c.bodyPart === bodyPart);
   }
-  
+
   return conversations;
 }

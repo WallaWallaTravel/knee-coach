@@ -24,7 +24,7 @@ const config: Config = {
           foot: "#ec4899",
         },
         // WCAG-compliant text colors on #0b0b0c
-        muted: "#d1d5db",        // 5.7:1 ratio
+        muted: "#d4d8de",        // ~6.1:1 ratio on #0b0b0c
         "muted-strong": "#9ca3af", // 3.9:1 - large text only
       },
       borderRadius: {
