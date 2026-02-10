@@ -35,14 +35,11 @@ function KneeProfileSummary({
   calibration,
   primaryZone,
   config,
-  bodyPart,
 }: {
-  calibration: AnyCalibrationProfile;
+  calibration: KneeCalibrationProfile;
   primaryZone: { zoneIndex: number; severity: number };
   config: BodyPartCheckInConfig;
-  bodyPart: BodyPart;
 }) {
-  const kneeProfile = calibration as KneeCalibrationProfile;
   return (
     <div className="card mt-3 bg-surface-raised">
       <div className="flex justify-between items-start">
@@ -53,14 +50,14 @@ function KneeProfileSummary({
           <div className="text-sm mb-1">
             <strong>Problem zone:</strong> {config.romZones[primaryZone.zoneIndex]?.label}
           </div>
-          {kneeProfile.painLocations?.length > 0 && (
+          {calibration.painLocations?.length > 0 && (
             <div className="muted text-xs">
-              {kneeProfile.painLocations.slice(0, 2).map((loc: string) => config.painLocationLabels[loc]).join(", ")}
-              {kneeProfile.painLocations.length > 2 && ` +${kneeProfile.painLocations.length - 2} more`}
+              {calibration.painLocations.slice(0, 2).map((loc) => config.painLocationLabels[loc]).join(", ")}
+              {calibration.painLocations.length > 2 && ` +${calibration.painLocations.length - 2} more`}
             </div>
           )}
         </div>
-        <Link href={`/${bodyPart}/calibrate`} className="muted text-xs">Edit →</Link>
+        <Link href="/knee/calibrate" className="muted text-xs">Edit →</Link>
       </div>
     </div>
   );
@@ -269,10 +266,9 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
       {/* Quick Profile Summary (knee only) */}
       {bodyPart === "knee" && primaryZone && (
         <KneeProfileSummary
-          calibration={calibration}
+          calibration={calibration as KneeCalibrationProfile}
           primaryZone={primaryZone}
           config={config}
-          bodyPart={bodyPart}
         />
       )}
 

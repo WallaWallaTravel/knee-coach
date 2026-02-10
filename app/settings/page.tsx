@@ -161,7 +161,8 @@ export default function SettingsPage() {
   const clearAllData = () => {
     if (confirm("Are you sure you want to delete all your data? This cannot be undone.")) {
       try {
-        // Raw localStorage iteration required to discover all bodyCoach.* keys dynamically
+        // Raw localStorage iteration required — safeGet reads individual known keys,
+        // but bulk delete must discover all bodyCoach.* keys dynamically
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -209,6 +210,7 @@ export default function SettingsPage() {
 
           <div className="flex justify-between items-center py-3.5 border-b border-surface-border">
             <div className="flex flex-col gap-0.5">
+              {/* !mt-0 overrides global `label { margin-top: 10px }` which beats Tailwind's @layer */}
               <label htmlFor="theme-select" className="text-[15px] font-medium !mt-0">Theme</label>
               <span className="text-xs text-muted">Choose your preferred color scheme</span>
             </div>
@@ -228,13 +230,13 @@ export default function SettingsPage() {
 
           <div className="flex justify-between items-center py-3.5">
             <div className="flex flex-col gap-0.5">
-              <span id="notifications-label" className="text-[15px] font-medium">Notifications</span>
+              <label htmlFor="notifications-toggle" className="text-[15px] font-medium !mt-0">Notifications</label>
               <span className="text-xs text-muted">Reminder notifications (coming soon)</span>
             </div>
             <label className="settings-toggle">
               <input
+                id="notifications-toggle"
                 type="checkbox"
-                aria-labelledby="notifications-label"
                 checked={appSettings.notifications}
                 onChange={(e) => setAppSettings(prev => ({ ...prev, notifications: e.target.checked }))}
               />

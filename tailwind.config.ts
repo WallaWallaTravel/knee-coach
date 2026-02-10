@@ -24,8 +24,8 @@ const config: Config = {
           foot: "#ec4899",
         },
         // WCAG-compliant text colors on #0b0b0c
-        muted: "#d4d8de",        // ~15:1 contrast ratio
-        "muted-strong": "#9ca3af", // ~7:1 - large text only
+        muted: "#d4d8de",        // 13.75:1 contrast ratio
+        "muted-strong": "#9ca3af", // 7.75:1 - large text only
       },
       borderRadius: {
         card: "14px",
