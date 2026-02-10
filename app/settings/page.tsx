@@ -230,12 +230,13 @@ export default function SettingsPage() {
 
           <div className="flex justify-between items-center py-3.5">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[15px] font-medium">Notifications</span>
+              <span id="notifications-label" className="text-[15px] font-medium">Notifications</span>
               <span className="text-xs text-muted">Reminder notifications (coming soon)</span>
             </div>
-            <label className="settings-toggle" aria-label="Toggle notifications">
+            <label className="settings-toggle">
               <input
                 type="checkbox"
+                aria-labelledby="notifications-label"
                 checked={appSettings.notifications}
                 onChange={(e) => setAppSettings(prev => ({ ...prev, notifications: e.target.checked }))}
               />
