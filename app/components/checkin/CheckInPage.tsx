@@ -232,27 +232,30 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
       </div>
 
       {/* Quick Profile Summary (knee only) */}
-      {bodyPart === "knee" && primaryZone && (
-        <div className="card mt-3 bg-surface-raised">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="muted text-[11px] uppercase mb-1">
-                Your Profile
-              </div>
-              <div className="text-sm mb-1">
-                <strong>Problem zone:</strong> {config.romZones[primaryZone.zoneIndex]?.label}
-              </div>
-              {(calibration as any).painLocations?.length > 0 && (
-                <div className="muted text-xs">
-                  {(calibration as any).painLocations.slice(0, 2).map((loc: string) => config.painLocationLabels[loc]).join(", ")}
-                  {(calibration as any).painLocations.length > 2 && ` +${(calibration as any).painLocations.length - 2} more`}
+      {bodyPart === "knee" && primaryZone && (() => {
+        const kneeProfile = calibration as KneeCalibrationProfile | null;
+        return (
+          <div className="card mt-3 bg-surface-raised">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="muted text-[11px] uppercase mb-1">
+                  Your Profile
                 </div>
-              )}
+                <div className="text-sm mb-1">
+                  <strong>Problem zone:</strong> {config.romZones[primaryZone.zoneIndex]?.label}
+                </div>
+                {kneeProfile?.painLocations && kneeProfile.painLocations.length > 0 && (
+                  <div className="muted text-xs">
+                    {kneeProfile.painLocations.slice(0, 2).map((loc: string) => config.painLocationLabels[loc]).join(", ")}
+                    {kneeProfile.painLocations.length > 2 && ` +${kneeProfile.painLocations.length - 2} more`}
+                  </div>
+                )}
+              </div>
+              <Link href={`/${bodyPart}/calibrate`} className="muted text-xs">Edit →</Link>
             </div>
-            <Link href={`/${bodyPart}/calibrate`} className="muted text-xs">Edit →</Link>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Trend-Based Safety Alerts */}
       {trends && (trends.progressiveWorsening || trends.painDirection === "worsening" || trends.recentResetCount >= 5) && (
