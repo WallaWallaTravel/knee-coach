@@ -233,7 +233,7 @@ export default function SettingsPage() {
               <label htmlFor="notifications-toggle" className="text-[15px] font-medium !mt-0">Notifications</label>
               <span className="text-xs text-muted">Reminder notifications (coming soon)</span>
             </div>
-            <label className="settings-toggle">
+            <span className="settings-toggle">
               <input
                 id="notifications-toggle"
                 type="checkbox"
@@ -241,7 +241,7 @@ export default function SettingsPage() {
                 onChange={(e) => setAppSettings(prev => ({ ...prev, notifications: e.target.checked }))}
               />
               <span className="settings-toggle-slider"></span>
-            </label>
+            </span>
           </div>
 
           <button className="btn btn-primary mt-4" onClick={saveAppSettings}>
