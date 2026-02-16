@@ -178,7 +178,7 @@ export function AIChat({
         {messages.map((msg, i) => (
           <div key={i} className="flex gap-2.5 mb-4">
             <div className={`w-8 h-8 flex items-center justify-center rounded-lg text-base shrink-0 ${
-              msg.role === "assistant" ? "bg-indigo-950" : "bg-surface-border"
+              msg.role === "assistant" ? "bg-[var(--color-chip-selected-bg)]" : "bg-surface-border"
             }`}>
               {msg.role === "user" ? "👤" : "🤖"}
             </div>
@@ -194,7 +194,7 @@ export function AIChat({
 
         {loading && (
           <div className="flex gap-2.5 mb-4">
-            <div className="w-8 h-8 flex items-center justify-center bg-indigo-950 rounded-lg text-base shrink-0">🤖</div>
+            <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-chip-selected-bg)] rounded-lg text-base shrink-0">🤖</div>
             <div className="flex-1 flex gap-1 px-3.5 py-3.5 bg-surface-raised rounded-xl">
               <span className="ai-loading-dot"></span>
               <span className="ai-loading-dot"></span>
@@ -204,7 +204,7 @@ export function AIChat({
         )}
 
         {error && (
-          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-500/15 rounded-lg text-red-300 text-[13px]">
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[13px]" style={{ background: "var(--color-error-bg)", color: "var(--color-error-text)" }}>
             <span>⚠️</span> {error}
           </div>
         )}
@@ -219,12 +219,12 @@ export function AIChat({
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           disabled={loading}
-          className="flex-1 px-3.5 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-indigo-600"
+          className="flex-1 px-3.5 py-2.5 border border-surface-border-hover rounded-lg bg-surface-raised text-[var(--color-text-primary)] text-sm focus:outline-none focus:border-[var(--color-primary)]"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="px-4 py-2.5 border-none rounded-lg bg-indigo-600 text-white text-sm font-medium cursor-pointer transition-colors duration-150 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2.5 border-none rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium cursor-pointer transition-colors duration-150 hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Send
         </button>
@@ -253,8 +253,8 @@ export function AIFloatingButton({ bodyPart, onClick }: AIFloatingButtonProps) {
 
   return (
     <button
-      className="fixed bottom-6 right-6 w-14 h-14 border-none rounded-full text-white text-2xl cursor-pointer shadow-lg shadow-indigo-600/40 transition-transform duration-200 hover:scale-110 active:scale-95 z-[100]"
-      style={{ background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)" }}
+      className="fixed bottom-6 right-6 w-14 h-14 border-none rounded-full text-white text-2xl cursor-pointer shadow-lg transition-transform duration-200 hover:scale-110 active:scale-95 z-[100]"
+      style={{ background: "linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%)", boxShadow: "0 10px 15px -3px var(--color-primary-subtle)" }}
       onClick={onClick}
       title="Ask AI"
     >
@@ -286,7 +286,7 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
   return (
     <>
       <button
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-surface-border-hover rounded-md bg-surface-raised text-muted text-xs cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)] hover:border-indigo-600"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-surface-border-hover rounded-md bg-surface-raised text-muted text-xs cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-primary)]"
         onClick={() => setShowChat(true)}
         title="Explain this exercise"
       >
@@ -295,7 +295,8 @@ export function ExplainButton({ exerciseTitle, exerciseIntent, bodyPart }: Expla
 
       {showChat && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[1000]"
+          className="fixed inset-0 flex items-center justify-center p-4 z-[1000]"
+          style={{ background: "var(--color-modal-overlay)" }}
           onClick={() => setShowChat(false)}
         >
           <div className="w-full max-w-[480px]" onClick={e => e.stopPropagation()}>

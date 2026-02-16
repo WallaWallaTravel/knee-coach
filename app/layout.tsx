@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-black focus:rounded-lg focus:m-2"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-[var(--color-surface)] focus:text-[var(--color-text-primary)] focus:rounded-lg focus:m-2 focus:border focus:border-[var(--color-primary)]"
         >
           Skip to main content
         </a>

@@ -351,7 +351,7 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
           {newMilestones.length > 0 && (
             <div className="mb-4">
               {newMilestones.map((m) => (
-                <div key={m.id} className="p-3 bg-indigo-500/15 rounded-lg border border-indigo-500/30 mb-2 text-center">
+                <div key={m.id} className="p-3 rounded-lg mb-2 text-center" style={{ background: "var(--color-primary-subtle)", border: "1px solid var(--color-primary-border)" }}>
                   <div className="text-xl mb-1">🏆</div>
                   <div className="font-bold text-sm">{m.title}</div>
                   <div className="muted text-xs">{m.description}</div>
@@ -512,7 +512,7 @@ export function SessionPageComponent({ bodyPart }: SessionPageProps) {
 
         {/* Warning for high pain */}
         {currentFeedback.painDuring >= 6 && (
-          <div className="mt-3 p-2.5 bg-red-500/15 rounded-lg border border-red-500/30 text-[13px]">
+          <div className="mt-3 p-2.5 rounded-lg text-[13px]" style={{ background: "var(--color-error-bg)", border: "1px solid var(--color-error-border)" }}>
             ⚠️ High pain reported. Consider stopping or modifying the exercise.
           </div>
         )}

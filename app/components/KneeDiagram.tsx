@@ -85,7 +85,7 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
                 cy={zone.cy}
                 r={zone.r}
                 fill={isSelected ? "var(--color-chip-selected-bg)" : isHovered ? "var(--color-hover-bg)" : "var(--color-surface)"}
-                stroke={isSelected ? "#6366f1" : isHovered ? "var(--color-surface-border-hover)" : "var(--color-surface-border-hover)"}
+                stroke={isSelected ? "var(--color-primary-border)" : isHovered ? "var(--color-surface-border-hover)" : "var(--color-surface-border-hover)"}
                 strokeWidth={isSelected ? 2 : 1.5}
                 className="cursor-pointer transition-all duration-150 ease-in-out"
                 tabIndex={0}
@@ -136,7 +136,7 @@ function KneeView({ title, zones, selectedLocations, onToggle, activeTooltip, se
               onMouseLeave={() => setActiveTooltip(null)}
               className={`text-[10px] px-1.5 py-0.5 rounded cursor-pointer transition-all duration-150 ease-in-out border ${
                 isSelected
-                  ? "border-indigo-600 bg-indigo-950 text-indigo-200"
+                  ? "border-[var(--color-primary-border)] bg-[var(--color-chip-selected-bg)] text-[var(--color-chip-selected-text)]"
                   : "border-surface-border-hover bg-transparent text-muted"
               }`}
             >
@@ -159,7 +159,7 @@ export function KneeDiagram({ selectedLocations, onToggleLocation }: KneeDiagram
         <div className="bg-surface-raised border border-surface-border-hover rounded-lg px-3 py-2 mb-3 text-[13px] text-center">
           <span className="font-medium">{KNEE_PAIN_LOCATION_LABELS[activeTooltip]}</span>
           {selectedLocations.includes(activeTooltip) && (
-            <span className="text-indigo-500 ml-2">✓ Selected</span>
+            <span className="text-[var(--color-primary-border)] ml-2">✓ Selected</span>
           )}
         </div>
       )}
@@ -203,7 +203,7 @@ export function KneeDiagram({ selectedLocations, onToggleLocation }: KneeDiagram
               <span
                 key={loc}
                 onClick={() => onToggleLocation(loc)}
-                className="text-xs px-2 py-1 rounded-md bg-indigo-950 border border-indigo-600 text-indigo-200 cursor-pointer flex items-center gap-1"
+                className="text-xs px-2 py-1 rounded-md bg-[var(--color-chip-selected-bg)] border border-[var(--color-primary-border)] text-[var(--color-chip-selected-text)] cursor-pointer flex items-center gap-1"
               >
                 {KNEE_PAIN_LOCATION_LABELS[loc].split(" (")[0]}
                 <span className="opacity-70">×</span>

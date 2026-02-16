@@ -263,8 +263,8 @@ export default function KneeCalibratePage() {
           </div>
           <div className="h-1 bg-surface-border rounded-sm">
             <div
-              className="h-full bg-indigo-500 rounded-sm transition-all duration-300"
-              style={{ width: `${progress}%` }}
+              className="h-full rounded-sm transition-all duration-300"
+              style={{ background: "var(--color-primary-border)", width: `${progress}%` }}
             />
           </div>
         </div>

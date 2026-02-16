@@ -335,11 +335,10 @@ export default function SettingsPage() {
               </div>
 
               {connectionStatus !== "idle" && (
-                <div className={`flex items-center gap-2 p-3 rounded-lg mt-3 text-sm ${
-                  connectionStatus === "success"
-                    ? "bg-green-500/15 text-green-500"
-                    : "bg-red-500/15 text-red-500"
-                }`}>
+                <div className="flex items-center gap-2 p-3 rounded-lg mt-3 text-sm" style={{
+                  background: connectionStatus === "success" ? "var(--color-success-bg)" : "var(--color-error-bg)",
+                  color: connectionStatus === "success" ? "var(--color-success-text)" : "var(--color-error-text)",
+                }}>
                   <span className="text-lg">
                     {connectionStatus === "success" ? "✓" : "✗"}
                   </span>
@@ -348,7 +347,7 @@ export default function SettingsPage() {
               )}
 
               {aiSettings.enableAIFeatures && (
-                <div className="flex items-center gap-2 p-3 bg-indigo-500/15 rounded-lg mt-3 text-indigo-300 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-lg mt-3 text-sm" style={{ background: "var(--color-primary-subtle)", color: "var(--color-primary-text)" }}>
                   <span className="text-lg">✨</span>
                   <span>AI features are enabled</span>
                 </div>
@@ -407,8 +406,8 @@ export default function SettingsPage() {
             </div>
             <div className="h-2 bg-surface-border rounded overflow-hidden">
               <div
-                className="h-full bg-indigo-500 rounded transition-[width] duration-300 ease-in-out min-w-[2px]"
-                style={{ width: `${Math.min((storageInfo.usedBytes / (5 * 1024 * 1024)) * 100, 100)}%` }}
+                className="h-full rounded transition-[width] duration-300 ease-in-out min-w-[2px]"
+                style={{ background: "var(--color-primary-border)", width: `${Math.min((storageInfo.usedBytes / (5 * 1024 * 1024)) * 100, 100)}%` }}
               />
             </div>
             <span className="text-[11px] text-muted mt-1 block">of ~5 MB localStorage limit</span>
@@ -444,11 +443,10 @@ export default function SettingsPage() {
               Restore data from a previously exported JSON backup
             </p>
             {importStatus.type !== "idle" && (
-              <div className={`flex items-center gap-2 p-3 rounded-lg mt-2 text-sm ${
-                importStatus.type === "success"
-                  ? "bg-green-500/15 text-green-500"
-                  : "bg-red-500/15 text-red-500"
-              }`}>
+              <div className="flex items-center gap-2 p-3 rounded-lg mt-2 text-sm" style={{
+                background: importStatus.type === "success" ? "var(--color-success-bg)" : "var(--color-error-bg)",
+                color: importStatus.type === "success" ? "var(--color-success-text)" : "var(--color-error-text)",
+              }}>
                 <span className="text-lg">{importStatus.type === "success" ? "✓" : "✗"}</span>
                 <span>{importStatus.message}</span>
               </div>
@@ -466,7 +464,7 @@ export default function SettingsPage() {
               Remove check-ins and sessions older than 90 days. Profiles and milestones are kept.
             </p>
             {pruneStatus.type === "success" && (
-              <div className="flex items-center gap-2 p-3 rounded-lg mt-2 text-sm bg-green-500/15 text-green-500">
+              <div className="flex items-center gap-2 p-3 rounded-lg mt-2 text-sm" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
                 <span className="text-lg">✓</span>
                 <span>{pruneStatus.message}</span>
               </div>
@@ -477,12 +475,12 @@ export default function SettingsPage() {
 
           <h4 className="m-0 mb-3 text-red-500">Danger Zone</h4>
 
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[10px]">
+          <div className="p-4 rounded-[10px]" style={{ background: "var(--color-error-bg)", border: "1px solid var(--color-error-border)" }}>
             <p className="muted m-0 mb-3">
               Permanently delete all your data including profiles, check-ins, and progress history.
               This action cannot be undone.
             </p>
-            <button className="btn bg-red-600 border-red-600 text-white hover:bg-red-700" onClick={clearAllData}>
+            <button className="btn text-white" style={{ background: "#dc2626", borderColor: "#dc2626" }} onClick={clearAllData}>
               Delete All Data
             </button>
           </div>

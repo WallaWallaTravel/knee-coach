@@ -148,8 +148,8 @@ export default function CalibratePage() {
         </div>
         <div className="h-1 bg-surface-border rounded-sm">
           <div
-            className="h-full bg-indigo-500 rounded-sm transition-all duration-300"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-sm transition-all duration-300"
+            style={{ background: "var(--color-primary-border)", width: `${progress}%` }}
           />
         </div>
       </div>
@@ -204,9 +204,9 @@ export default function CalibratePage() {
                   className="flex-1 border-none rounded cursor-pointer transition-colors duration-200"
                   style={{
                     background: selectedZones.includes(i)
-                      ? zoneSeverities[i] === 3 ? "#dc2626"
-                        : zoneSeverities[i] === 2 ? "#f59e0b"
-                        : "#6366f1"
+                      ? zoneSeverities[i] === 3 ? "var(--color-danger-border)"
+                        : zoneSeverities[i] === 2 ? "var(--color-warning-border)"
+                        : "var(--color-primary-border)"
                       : "var(--color-surface-border)",
                   }}
                   title={zone.label}
@@ -421,8 +421,8 @@ export default function CalibratePage() {
                     style={{
                       background: zoneSeverities[i] === 3 ? "var(--color-chip-danger-bg)" :
                                   zoneSeverities[i] === 2 ? "var(--color-chip-warning-bg)" : "var(--color-chip-selected-bg)",
-                      borderColor: zoneSeverities[i] === 3 ? "#ef4444" :
-                                   zoneSeverities[i] === 2 ? "#f59e0b" : "#4f46e5",
+                      borderColor: zoneSeverities[i] === 3 ? "var(--color-danger-border)" :
+                                   zoneSeverities[i] === 2 ? "var(--color-warning-border)" : "var(--color-primary)",
                     }}
                   >
                     {ROM_ZONES[i].label}

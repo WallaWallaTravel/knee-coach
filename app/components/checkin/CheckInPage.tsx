@@ -274,7 +274,7 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
 
       {/* Trend-Based Safety Alerts */}
       {trends && (trends.progressiveWorsening || trends.painDirection === "worsening" || trends.recentResetCount >= 5) && (
-        <div className="card mt-3 bg-red-500/10 border-red-500/30">
+        <div className="card mt-3" style={{ background: "var(--color-error-bg)", borderColor: "var(--color-error-border)" }}>
           <div className="font-bold mb-2 text-sm">Trends to Watch</div>
           {trends.progressiveWorsening && (
             <div className="text-[13px] mb-1.5">
@@ -501,7 +501,7 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
 
         {/* Warning for concerning sensations */}
         {hasWarningSensations && (
-          <div className="mt-3 p-2.5 bg-red-500/15 rounded-lg border border-red-500/30 text-[13px]">
+          <div className="mt-3 p-2.5 rounded-lg text-[13px]" style={{ background: "var(--color-error-bg)", border: "1px solid var(--color-error-border)" }}>
             ⚠️ These sensations suggest caution. The coach will adjust your plan accordingly.
           </div>
         )}
@@ -637,9 +637,9 @@ export function CheckInPage({ bodyPart }: CheckInPageProps) {
             <div key={i} className={`p-2.5 rounded-lg text-[13px] ${
               i < insights.length - 1 ? "mb-2" : ""
             } ${
-              insight.type === "positive" ? "bg-green-500/10"
-                : insight.type === "attention" ? "bg-red-500/10"
-                : "bg-indigo-500/10"
+              insight.type === "positive" ? "bg-[var(--color-success-bg)]"
+                : insight.type === "attention" ? "bg-[var(--color-error-bg)]"
+                : "bg-[var(--color-primary-subtle)]"
             }`}>
               <div className="font-semibold mb-0.5">
                 {insight.type === "positive" ? "+" : insight.type === "attention" ? "!" : "i"} {insight.title}
